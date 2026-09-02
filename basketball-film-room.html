@@ -477,6 +477,62 @@
   }
   .game-menu-action:hover { background: var(--accent-bg); }
 
+  /* ── Team switcher ── */
+  .team-switcher { position: relative; display: inline-block; margin: 8px 0 6px; }
+  .team-switch-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 999px;
+    color: var(--text);
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .team-switch-btn:hover { background: var(--bg4); border-color: var(--accent-border); }
+  .team-switch-btn svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--text3); }
+  .team-switch-name { max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .team-menu {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    width: 300px; max-height: 60vh; overflow-y: auto;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 6px;
+    z-index: 220; box-shadow: 0 14px 36px rgba(0,0,0,0.55);
+  }
+  .team-menu.hidden { display: none; }
+  .team-menu-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px; border-radius: var(--radius); cursor: pointer;
+  }
+  .team-menu-item:hover { background: var(--bg3); }
+  .team-menu-item.active { background: var(--accent-bg); }
+  .team-menu-item.active .tm-name { color: var(--accent); }
+  .tm-info { flex: 1; min-width: 0; }
+  .tm-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tm-count { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+  .tm-actions { display: none; gap: 2px; flex-shrink: 0; }
+  .team-menu-item:hover .tm-actions { display: flex; }
+
+  .team-add-form { padding: 8px; }
+  .team-add-form input {
+    width: 100%;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--sans); font-size: 13px;
+    padding: 6px 10px; outline: none; margin-bottom: 6px;
+  }
+  .team-add-form input:focus { border-color: var(--accent-border); }
+  .team-add-form input::placeholder { color: var(--text3); }
+
+  /* Team name heading the topbar's game list */
+  .game-menu-head {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text3);
+    padding: 6px 8px 7px;
+  }
+
   /* ── Dashboard ── */
   .dashboard { grid-column: 1 / -1; overflow-y: auto; background: var(--bg); }
   .dash-inner { max-width: 1180px; margin: 0 auto; padding: 26px 26px 56px; }
@@ -832,10 +888,13 @@ let pendingSeek = null;   // {start, play} — applied once a newly loaded playe
 let clips = [];
 let playlists = [];   // each belongs to exactly one game
 let games = [];       // a game is a title + the YouTube film it came from
+let teams = [];       // a team (or season) owns games
 let activeClipIdx = -1;
 let activePl = null;       // null = every clip in the active game
 let activeGame = null;     // game id
-let activeCategory = null; // playlist NAME, rolled up across every game
+let activeTeam = null;     // team id; null = every team
+let activeCategory = null; // playlist NAME, rolled up across the active team
+let loadedGameId = null;   // whose film is in the player right now
 let view = 'dashboard';    // 'dashboard' | 'film'
 let isPlaying = false;
 let loopEnabled = false;
@@ -846,6 +905,8 @@ let selectedEmoji = '🏀';
 const EMOJIS = ['🏀','🎬','⚡','🔥','🛡️','🎯','💡','📌'];
 
 // Seeded into a brand-new game only when there's no previous game to copy from.
+const DEFAULT_TEAM_NAME = 'My team';
+
 const DEFAULT_CATEGORIES = [
   { name: 'Offence',    emoji: '⚡' },
   { name: 'Defence',    emoji: '🛡️' },
@@ -872,7 +933,9 @@ function saveToStorage() {
     localStorage.setItem('filmroom_clips', JSON.stringify(clips));
     localStorage.setItem('filmroom_playlists', JSON.stringify(playlists));
     localStorage.setItem('filmroom_games', JSON.stringify(games));
+    localStorage.setItem('filmroom_teams', JSON.stringify(teams));
     if (activeGame) localStorage.setItem('filmroom_active_game', activeGame);
+    localStorage.setItem('filmroom_active_team', activeTeam || '');
     if (currentVideoId) localStorage.setItem('filmroom_video', currentVideoId);
   } catch(e) {}
 }
@@ -881,16 +944,39 @@ function loadFromStorage() {
     const c = localStorage.getItem('filmroom_clips');
     const p = localStorage.getItem('filmroom_playlists');
     const g = localStorage.getItem('filmroom_games');
+    const t = localStorage.getItem('filmroom_teams');
     if (c) clips     = JSON.parse(c) || [];
     if (p) playlists = JSON.parse(p) || [];
     if (g) games     = JSON.parse(g) || [];
+    if (t) teams     = JSON.parse(t) || [];
   } catch(e) {
-    clips = []; playlists = []; games = [];
+    clips = []; playlists = []; games = []; teams = [];
   }
   // Saves made before games existed have flat playlists and no gameId
   if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
+  // Saves made before teams existed have games with no teamId
+  migrateToTeams();
+
   activeGame = localStorage.getItem('filmroom_active_game') || null;
   if (!games.some(g2 => g2.id === activeGame)) activeGame = games.length ? games[0].id : null;
+
+  // Land on a real team rather than the mixed view — separating teams is the point
+  const savedTeam = localStorage.getItem('filmroom_active_team') || null;
+  const gameTeam = (games.find(g2 => g2.id === activeGame) || {}).teamId || null;
+  activeTeam = teams.some(t2 => t2.id === savedTeam) ? savedTeam
+             : (gameTeam || (teams.length ? teams[0].id : null));
+}
+
+/* Every game needs an owner. Pre-teams saves get one team holding all of them. */
+function migrateToTeams() {
+  const orphans = games.filter(g => !g.teamId);
+  if (!orphans.length) return;
+  let team = teams[0];
+  if (!team) {
+    team = { id: uid(), name: DEFAULT_TEAM_NAME, createdAt: Date.now() };
+    teams.push(team);
+  }
+  orphans.forEach(g => { g.teamId = team.id; });
 }
 
 /*
@@ -1165,10 +1251,11 @@ function deletePlaylist(id) {
 function openRenameModal(id, type) {
   type = type || 'playlist';
   renameTarget = { type, id };
-  const subject = type === 'game'
-    ? games.find(g => g.id === id)
-    : playlists.find(p => p.id === id);
-  document.getElementById('rename-title').textContent = type === 'game' ? 'Rename game' : 'Rename playlist';
+  const subject = type === 'game' ? games.find(g => g.id === id)
+                : type === 'team' ? teams.find(t => t.id === id)
+                : playlists.find(p => p.id === id);
+  document.getElementById('rename-title').textContent =
+    type === 'game' ? 'Rename game' : type === 'team' ? 'Rename team' : 'Rename playlist';
   const input = document.getElementById('rename-input');
   input.value = subject ? (type === 'game' ? subject.title : subject.name) : '';
   document.getElementById('rename-modal').classList.remove('hidden');
@@ -1184,6 +1271,9 @@ function confirmRename() {
     const g = games.find(x => x.id === renameTarget.id);
     // A hand-typed title outranks whatever YouTube would have supplied
     if (g) { g.title = name; g.autoTitle = false; }
+  } else if (renameTarget.type === 'team') {
+    const t = teams.find(x => x.id === renameTarget.id);
+    if (t) t.name = name;
   } else {
     const pl = playlists.find(p => p.id === renameTarget.id);
     if (pl) {
@@ -1280,10 +1370,12 @@ function updatePlaylistSelect() {
 function visibleClips() {
   // A category spans games: match every playlist sharing that name
   if (activeCategory) {
-    const ids = new Set(playlists.filter(p => p.name === activeCategory).map(p => p.id));
+    // Spans games, but never spans teams unless the mixed view is showing
+    const gids = scopedGameIds();
+    const ids = new Set(playlists.filter(p => p.name === activeCategory && gids.has(p.gameId)).map(p => p.id));
     return clips.filter(c => ids.has(c.playlistId));
   }
-  let list = activeGame ? clips.filter(c => c.gameId === activeGame) : clips;
+  let list = activeGame ? clips.filter(c => c.gameId === activeGame) : scopedClips();
   if (activePl) list = list.filter(c => c.playlistId === activePl);
   return list;
 }
@@ -1351,6 +1443,7 @@ function playClipAtIdx(idx, opts) {
   selectClipByIdx(idx);
   const clip = visibleClips()[idx];
   if (!clip) return;
+  if (clip.gameId) loadedGameId = clip.gameId;   // keeps "add clip" pointed at the right game
   // Clip belongs to a different film — swap the player over, then seek once it's ready
   if (clip.videoId && clip.videoId !== currentVideoId) {
     pendingSeek = { start: clip.effStart, play: true };
@@ -1499,8 +1592,8 @@ function renderClips() {
 
 /* ── Import / Export ── */
 function exportJSON() {
-  // version 2 adds games; clips keep videoId so old downloaders still work
-  const data = { version: 2, games, playlists, clips };
+  // version 3 adds teams; clips keep videoId so old downloaders still work
+  const data = { version: 3, teams, games, playlists, clips };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1519,32 +1612,192 @@ function importJSON(event) {
       clips     = data.clips     || [];
       playlists = data.playlists || [];
       games     = data.games     || [];
+      teams     = data.teams     || [];
       // A version 1 export has no games — rebuild them from the clips' videoIds
       if (!games.length) migrateToGames(null);
+      // A version 2 export has no teams — park every game under one
+      migrateToTeams();
+      activeTeam = teams.length ? teams[0].id : null;
       activeGame = games.length ? games[0].id : null;
+      loadedGameId = null;
       activePl = null; activeCategory = null;
       currentVideoId = null;
       stopWatcher(); clearNowPlaying();
       saveToStorage();
       setView('dashboard');
       renderAll();
-      toast('Imported ' + clips.length + ' clip(s) across ' + games.length + ' game(s)');
+      toast('Imported ' + clips.length + ' clip(s) · ' + games.length + ' game(s) · ' + teams.length + ' team(s)');
     } catch { toast('Invalid file'); }
   };
   reader.readAsText(file);
   event.target.value = '';
 }
 
+/* ── Teams ───────────────────────────────────────────────────────────────── */
+/* A team owns games. Name it however you track them — "U16 Girls", "2025", or
+ * "Senior Men 2025"; it is one free-text label, not a team/season pair. */
+function createTeam(name) {
+  name = (name || '').trim();
+  if (!name) { toast('Enter a team name'); return; }
+  if (teams.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+    toast('"' + name + '" already exists'); return;
+  }
+  const team = { id: uid(), name, createdAt: Date.now() };
+  teams.push(team);
+  selectTeam(team.id);
+  toast('Team added');
+}
+
+function selectTeam(id) {
+  activeTeam = id;                       // null = the mixed "All teams" view
+  activeCategory = null;
+  activePl = null;
+  // The open game may belong to another team now
+  const g = currentGame();
+  if (!g || (activeTeam && g.teamId !== activeTeam)) {
+    const pool = scopedGames();
+    activeGame = pool.length ? pool[0].id : null;
+  }
+  closeTeamMenu();
+  saveToStorage();
+  renderAll();
+}
+
+function deleteTeam(id) {
+  const t = teams.find(x => x.id === id);
+  if (!t) return;
+  const tGames = games.filter(g => g.teamId === id);
+  const ids = new Set(tGames.map(g => g.id));
+  const n = clips.filter(c => ids.has(c.gameId)).length;
+  if (!confirm('Delete "' + t.name + '", its ' + tGames.length + ' game(s) and ' + n +
+               ' clip(s)?\n\nThis cannot be undone.')) return;
+  clips     = clips.filter(c => !ids.has(c.gameId));
+  playlists = playlists.filter(pl => !ids.has(pl.gameId));
+  games     = games.filter(g => !ids.has(g.id));
+  teams     = teams.filter(x => x.id !== id);
+  if (ids.has(loadedGameId)) loadedGameId = null;
+  if (ids.has(activeGame)) {
+    activeGame = null;
+    currentVideoId = null;
+    videoLoaded = false;
+    if (player && player.destroy) { try { player.destroy(); } catch(e) {} }
+    player = null;
+    document.getElementById('player-container').style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+  }
+  activeTeam = teams.length ? teams[0].id : null;
+  activeCategory = null; activePl = null;
+  stopWatcher(); clearNowPlaying();
+  saveToStorage();
+  renderAll();
+}
+
+let addingTeam = false;
+function toggleAddTeam(e) {
+  if (e) e.stopPropagation();
+  addingTeam = !addingTeam;
+  renderTeamMenu();
+  if (addingTeam) {
+    const input = document.getElementById('new-team-name');
+    if (input) input.focus();
+  }
+}
+function submitNewTeam(e) {
+  if (e) e.stopPropagation();
+  const input = document.getElementById('new-team-name');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) { toast('Enter a team name'); return; }
+  addingTeam = false;
+  createTeam(name);   // selects the new team and re-renders
+}
+
+function renderTeamMenu() {
+  const menu = document.getElementById('team-menu');
+  if (!menu) return;
+  let html = teams.map(t => {
+    const tg = games.filter(g => g.teamId === t.id);
+    const ids = new Set(tg.map(g => g.id));
+    const n = clips.filter(c => ids.has(c.gameId)).length;
+    return `
+      <div class="team-menu-item${t.id === activeTeam ? ' active' : ''}" onclick="selectTeam('${t.id}')">
+        <div class="tm-info">
+          <div class="tm-name">${esc(t.name)}</div>
+          <div class="tm-count">${tg.length} game${tg.length !== 1 ? 's' : ''} · ${n} clip${n !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="tm-actions">
+          <button class="icon-btn" onclick="event.stopPropagation();openRenameModal('${t.id}','team')" title="Rename team">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="icon-btn danger" onclick="event.stopPropagation();deleteTeam('${t.id}')" title="Delete team">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+  if (!teams.length) html = `<div class="empty-state" style="padding:1.2rem 1rem"><span>No teams yet</span></div>`;
+  if (teams.length > 1) {
+    html += `<div class="team-menu-item${activeTeam === null ? ' active' : ''}" onclick="selectTeam(null)">
+        <div class="tm-info"><div class="tm-name">All teams</div>
+        <div class="tm-count">Everything, mixed together</div></div>
+      </div>`;
+  }
+  html += `<div class="game-menu-sep"></div>`;
+  html += addingTeam
+    ? `<div class="team-add-form" onclick="event.stopPropagation()">
+         <input id="new-team-name" placeholder="Team or year, e.g. U16 Girls 2025" maxlength="60"
+                onkeydown="if(event.key==='Enter')submitNewTeam(event)" />
+         <div style="display:flex;gap:6px">
+           <button class="btn accent" style="flex:1;font-size:12px;padding:5px" onclick="submitNewTeam(event)">Create</button>
+           <button class="btn ghost" style="font-size:12px;padding:5px" onclick="toggleAddTeam(event)">Cancel</button>
+         </div>
+       </div>`
+    : `<div class="game-menu-action" onclick="toggleAddTeam(event)">＋  New team / year…</div>`;
+  menu.innerHTML = html;
+}
+
+function toggleTeamMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('team-menu');
+  const opening = menu.classList.contains('hidden');
+  if (opening) { addingTeam = false; renderTeamMenu(); }
+  menu.classList.toggle('hidden', !opening);
+}
+function closeTeamMenu() {
+  const menu = document.getElementById('team-menu');
+  if (menu) menu.classList.add('hidden');
+  addingTeam = false;
+}
+document.addEventListener('click', (e) => {
+  const sw = document.getElementById('team-switcher');
+  if (sw && !sw.contains(e.target)) closeTeamMenu();
+});
+
 /* ── Games ───────────────────────────────────────────────────────────────── */
 function currentGame()      { return games.find(g => g.id === activeGame) || null; }
+function currentTeam()      { return teams.find(t => t.id === activeTeam) || null; }
 function gamePlaylists(id)  { return playlists.filter(p => p.gameId === id); }
 function gameClips(id)      { return clips.filter(c => c.gameId === id); }
+function gameTeam(g)        { return g ? teams.find(t => t.id === g.teamId) : null; }
+
+/* Everything the dashboard shows is scoped to the active team.
+ * activeTeam === null is the deliberate "All teams" overview. */
+function scopedGames() {
+  return activeTeam ? games.filter(g => g.teamId === activeTeam) : games;
+}
+function scopedGameIds()  { return new Set(scopedGames().map(g => g.id)); }
+function scopedClips()    { const ids = scopedGameIds(); return clips.filter(c => ids.has(c.gameId)); }
+function scopedPlaylists(){ const ids = scopedGameIds(); return playlists.filter(p => ids.has(p.gameId)); }
 
 /*
  * The game whose film is actually on screen. In a cross-game category view the
  * sidebar's game and the loaded film differ, and new clips must follow the film.
  */
 function filmGame() {
+  // Two teams can hold the same film, so a videoId no longer identifies a game.
+  // loadedGameId records which one we actually opened.
+  const loaded = games.find(g => g.id === loadedGameId);
+  if (loaded && (!currentVideoId || loaded.videoId === currentVideoId)) return loaded;
   return games.find(g => g.videoId && g.videoId === currentVideoId) || currentGame();
 }
 
@@ -1554,8 +1807,8 @@ function thumbFor(videoId) {
 
 /* A new game inherits the previous game's categories, so a season keeps one
  * vocabulary and the dashboard's cross-game rollup lines up. */
-function seedPlaylists(gameId) {
-  const prev = games.filter(g => g.id !== gameId).slice(-1)[0];
+function seedPlaylists(gameId, teamId) {
+  const prev = games.filter(g => g.id !== gameId && g.teamId === teamId).slice(-1)[0];
   const template = prev
     ? gamePlaylists(prev.id).map(pl => ({ name: pl.name, emoji: pl.emoji }))
     : [];
@@ -1568,20 +1821,30 @@ function createGame(url, title) {
   const vid = extractVideoId(url || '');
   if (!vid) { toast('Could not find a YouTube video ID in that URL.'); return; }
 
-  // The whole point of storing the link: paste it once, then pick by name
-  const existing = games.find(g => g.videoId === vid);
+  // A game must belong to a team, even when the mixed view is showing
+  let team = currentTeam() || teams[0];
+  if (!team) {
+    team = { id: uid(), name: DEFAULT_TEAM_NAME, createdAt: Date.now() };
+    teams.push(team);
+  }
+  activeTeam = team.id;
+
+  // Paste once, then pick by name. Scoped to the team, so two squads can each
+  // keep their own game for the same film.
+  const existing = games.find(g => g.videoId === vid && g.teamId === team.id);
   if (existing) { toast('Already saved as "' + existing.title + '"'); openGame(existing.id); return; }
 
   const typed = (title || '').trim();
   const game = {
     id: uid(),
+    teamId: team.id,
     title: typed || 'Untitled film',
     videoId: vid,
     createdAt: Date.now(),
     autoTitle: !typed,      // let the player supply a real title if we have none
   };
   games.push(game);
-  seedPlaylists(game.id);
+  seedPlaylists(game.id, team.id);
   saveToStorage();
   openGame(game.id);
   toast('Game added');
@@ -1612,6 +1875,8 @@ function openGame(id, opts) {
   const game = games.find(g => g.id === id);
   if (!game) return;
   activeGame = id;
+  if (game.teamId) activeTeam = game.teamId;   // opening from the mixed view pins the team
+  loadedGameId = id;
   activeCategory = null;
   activePl = opts.playlistId || null;
   stopWatcher();
@@ -1631,8 +1896,10 @@ function deleteGame(id) {
   clips     = clips.filter(c => c.gameId !== id);
   playlists = playlists.filter(pl => pl.gameId !== id);
   games     = games.filter(x => x.id !== id);
+  if (loadedGameId === id) loadedGameId = null;
   if (activeGame === id) {
-    activeGame = games.length ? games[0].id : null;
+    const pool = scopedGames();
+    activeGame = pool.length ? pool[0].id : (games.length ? games[0].id : null);
     activePl = null;
     currentVideoId = null;
     videoLoaded = false;
@@ -1667,8 +1934,11 @@ function categoryRollup() {
     return map.get(name);
   };
   // Seed from playlists first so a category you made but haven't filled shows up
-  playlists.forEach(pl => seed(pl.name, pl.emoji).games.add(pl.gameId));
+  const scopedPl = scopedPlaylists();
+  const plIds = new Set(scopedPl.map(pl => pl.id));
+  scopedPl.forEach(pl => seed(pl.name, pl.emoji).games.add(pl.gameId));
   clips.forEach(c => {
+    if (!plIds.has(c.playlistId)) return;
     const pl = playlists.find(x => x.id === c.playlistId);
     if (!pl) return;
     const e = seed(pl.name, pl.emoji);
@@ -1726,7 +1996,12 @@ function renderGameSwitcher() {
   document.getElementById('game-switch-emoji').textContent = activeCategory ? '🗂️' : '🎬';
 
   const menu = document.getElementById('game-menu');
-  let html = games.map(g => {
+  const pool = scopedGames();
+  const team = currentTeam();
+  let html = team
+    ? `<div class="game-menu-head">${esc(team.name)}</div>`
+    : `<div class="game-menu-head">All teams</div>`;
+  html += pool.map(g => {
     const n = gameClips(g.id).length;
     const thumb = thumbFor(g.videoId);
     return `
@@ -1739,9 +2014,10 @@ function renderGameSwitcher() {
         </div>
       </div>`;
   }).join('');
-  if (!games.length) html = `<div class="empty-state" style="padding:1.5rem 1rem"><span>No games yet</span></div>`;
+  if (!pool.length) html += `<div class="empty-state" style="padding:1.2rem 1rem"><span>No games in this team</span></div>`;
   html += `<div class="game-menu-sep"></div>
-    <div class="game-menu-action" onclick="setView('dashboard')">＋  New game…</div>`;
+    <div class="game-menu-action" onclick="setView('dashboard')">＋  New game…</div>
+    <div class="game-menu-action" onclick="setView('dashboard')">⇄  Switch team…</div>`;
   menu.innerHTML = html;
 }
 
@@ -1817,20 +2093,24 @@ function addGameFromForm() {
 
 function renderDashboard() {
   const el = document.getElementById('dashboard');
-  const totalSecs = clips.reduce((sum, c) => sum + clipDuration(c), 0);
+  const inScope   = scopedClips();
+  const myGames   = scopedGames();
+  const myPl      = scopedPlaylists();
+  const totalSecs = inScope.reduce((sum, c) => sum + clipDuration(c), 0);
   const cats = categoryRollup();
   const maxCat = cats.reduce((m, c) => Math.max(m, c.count), 0) || 1;
+  const team = currentTeam();
 
   const stats = [
-    ['Games',      games.length],
-    ['Clips',      clips.length],
-    ['Categories', new Set(playlists.map(p => p.name)).size],
+    ['Games',      myGames.length],
+    ['Clips',      inScope.length],
+    ['Categories', new Set(myPl.map(p => p.name)).size],
     ['Footage',    fmtDuration(totalSecs)],
   ].map(([label, val]) => `
     <div class="stat"><div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`
   ).join('');
 
-  const gameCards = games.map(g => {
+  const gameCards = myGames.map(g => {
     const n = gameClips(g.id).length;
     const secs = gameClips(g.id).reduce((sum, c) => sum + clipDuration(c), 0);
     const thumb = thumbFor(g.videoId);
@@ -1856,7 +2136,7 @@ function renderDashboard() {
         </div>
         <div class="game-card-body">
           <div class="game-card-title">${esc(g.title)}</div>
-          <div class="game-card-meta">${fmtDuration(secs)} of clips</div>
+          <div class="game-card-meta">${activeTeam === null && gameTeam(g) ? esc(gameTeam(g).name) + ' · ' : ''}${fmtDuration(secs)} of clips</div>
           <div class="game-chips">${chips}</div>
         </div>
       </div>`;
@@ -1887,7 +2167,7 @@ function renderDashboard() {
     </div>`).join('')
     : `<div class="empty-state"><span>No categories yet</span></div>`;
 
-  const recent = clips.slice(-9).reverse().map(c => {
+  const recent = inScope.slice(-9).reverse().map(c => {
     const g = games.find(x => x.id === c.gameId);
     const pl = playlists.find(x => x.id === c.playlistId);
     return `
@@ -1904,9 +2184,18 @@ function renderDashboard() {
   el.innerHTML = `
     <div class="dash-inner">
       <div class="dash-head">
-        <div>
+        <div style="min-width:0">
           <h1>Film library</h1>
-          <div class="dash-sub">Every clip you've cut, across every game.</div>
+          <div class="team-switcher" id="team-switcher">
+            <button class="team-switch-btn" onclick="toggleTeamMenu(event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span class="team-switch-name">${team ? esc(team.name) : 'All teams'}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="team-menu hidden" id="team-menu"></div>
+          </div>
+          <div class="dash-sub">${team ? 'Every clip for this team, across every game.'
+                                       : 'Every clip you\'ve cut, across every team.'}</div>
         </div>
         <div class="dash-stats">${stats}</div>
       </div>
@@ -1914,8 +2203,8 @@ function renderDashboard() {
       <div class="dash-section">
         <div class="dash-section-head">
           <h2>Games</h2>
-          <span class="clip-count-badge">${games.length}</span>
-          ${games.length ? `<span class="dash-hint">Click a game to open the film room · click a chip to jump straight to that playlist</span>` : ''}
+          <span class="clip-count-badge">${myGames.length}</span>
+          ${myGames.length ? `<span class="dash-hint">Click a game to open the film room · click a chip to jump straight to that playlist</span>` : ''}
         </div>
         <div class="game-grid">${gameCards}${addCard}</div>
       </div>
@@ -1941,7 +2230,7 @@ function renderDashboard() {
 /* keyboard shortcuts */
 document.addEventListener('keydown', (e) => {
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-  if (e.key === 'Escape') { closeGameMenu(); closeRenameModal(); closeMoveModal(); return; }
+  if (e.key === 'Escape') { closeGameMenu(); closeTeamMenu(); closeRenameModal(); closeMoveModal(); return; }
   if (view !== 'film') return;   // no hidden player to drive from the dashboard
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   if (e.key === 'ArrowRight') nextClip();
