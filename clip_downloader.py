@@ -9,19 +9,24 @@ Usage:
     python clip_downloader.py filmroom-clips.json --playlist "Offence"
     python clip_downloader.py filmroom-clips.json --playlist "Offence" --output ./my_clips
 
-Setup (needs Python 3.10+ — see note below):
-    python3 -m venv filmroom-env
+Setup:
+    python3.13 -m venv filmroom-env
     source filmroom-env/bin/activate          # Windows: filmroom-env\\Scripts\\activate
     pip install -r requirements.txt
+
+Note the explicit `python3.13` — not `python3`. macOS ships 3.9 as `python3`,
+and yt-dlp dropped 3.9, so building the venv with it silently pins you to a
+stale yt-dlp that YouTube has already broken. That surfaces as a download
+failure ("The page needs to be reloaded") with nothing pointing at the
+interpreter, which is a slow thing to diagnose. Any 3.10+ works; name the
+version explicitly so you can't land on the system one by accident.
+
+If `python3.13` isn't found, install it without needing admin rights:
+    pip install --user uv && uv python install 3.13
 
 That's all — imageio-ffmpeg ships a static ffmpeg binary, so there's no need for
 Homebrew or a system ffmpeg install. A system ffmpeg on PATH is used in
 preference to the bundled one if you have one.
-
-Build the venv with Python 3.10 or newer. yt-dlp dropped 3.9 support, so an
-older interpreter silently pins you to a stale yt-dlp that YouTube has already
-broken — which looks like a download failure, not a version problem. macOS
-ships 3.9, so check `python3 --version` before blaming the downloader.
 """
 
 from __future__ import annotations

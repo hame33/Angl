@@ -1,5 +1,9 @@
 # Film Room clip downloader dependencies.
 # Both are pure pip installs — no Homebrew or system ffmpeg required.
+#
+# Install into a venv built with python3.13 (or any 3.10+), NOT the `python3`
+# that ships with macOS — yt-dlp dropped 3.9 and pip will quietly resolve to a
+# stale, broken release instead of failing.
 
 yt-dlp>=2024.1.1        # fetches the source video from YouTube
 imageio-ffmpeg>=0.4.9   # ships a static ffmpeg binary used to cut the clips
