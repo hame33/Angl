@@ -422,6 +422,182 @@
     display: flex; gap: 6px;
   }
 
+  /* ── View modes ── */
+  .app.mode-dashboard { grid-template-columns: 1fr; }
+  .app.mode-dashboard .sidebar,
+  .app.mode-dashboard .main,
+  .app.mode-dashboard .clips-panel { display: none; }
+  .app.mode-film .dashboard { display: none; }
+  .app.mode-dashboard .film-only { display: none !important; }
+
+  /* ── Game switcher ── */
+  .game-switcher { position: relative; flex: 1; min-width: 0; }
+  .game-switch-btn {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; max-width: 400px;
+    padding: 6px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; text-align: left;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .game-switch-btn:hover { background: var(--bg4); border-color: var(--border2); }
+  .game-switch-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-switch-btn svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--text3); }
+
+  .game-menu {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    width: 330px; max-height: 62vh; overflow-y: auto;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 6px;
+    z-index: 200; box-shadow: 0 14px 36px rgba(0,0,0,0.55);
+  }
+  .game-menu.hidden { display: none; }
+  .game-menu-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 8px; border-radius: var(--radius); cursor: pointer;
+  }
+  .game-menu-item:hover { background: var(--bg3); }
+  .game-menu-item.active { background: var(--accent-bg); }
+  .game-menu-item.active .gm-name { color: var(--accent); }
+  .gm-thumb {
+    width: 46px; height: 27px; border-radius: 4px; object-fit: cover;
+    background: var(--bg4); flex-shrink: 0; display: block;
+  }
+  .gm-info { flex: 1; min-width: 0; }
+  .gm-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gm-count { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+  .game-menu-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+  .game-menu-action {
+    padding: 8px; border-radius: var(--radius); cursor: pointer;
+    font-size: 13px; font-weight: 500; color: var(--accent);
+  }
+  .game-menu-action:hover { background: var(--accent-bg); }
+
+  /* ── Dashboard ── */
+  .dashboard { grid-column: 1 / -1; overflow-y: auto; background: var(--bg); }
+  .dash-inner { max-width: 1180px; margin: 0 auto; padding: 26px 26px 56px; }
+  .dash-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap; margin-bottom: 26px;
+  }
+  .dash-head h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .dash-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .dash-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 9px 16px; min-width: 90px;
+  }
+  .stat-val { font-size: 20px; font-weight: 600; font-family: var(--mono); line-height: 1.25; }
+  .stat-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text3); margin-top: 2px;
+  }
+
+  .dash-section { margin-bottom: 30px; }
+  .dash-section-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .dash-section-head h2 {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text2);
+  }
+  .dash-hint { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 14px; }
+  .game-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden; cursor: pointer;
+    position: relative; transition: border-color 0.15s, transform 0.12s;
+  }
+  .game-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .game-card.active { border-color: var(--accent-border); }
+  .game-thumb { position: relative; aspect-ratio: 16/9; background: var(--bg4); }
+  .game-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .game-thumb-badge {
+    position: absolute; bottom: 6px; right: 6px;
+    background: rgba(0,0,0,0.78); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 2px 8px;
+    font-size: 10px; font-family: var(--mono); color: var(--text);
+  }
+  .game-card-body { padding: 10px 12px 12px; }
+  .game-card-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-card-meta { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-top: 3px; }
+  .game-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+  .chip {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg3); color: var(--text2);
+    white-space: nowrap; cursor: pointer; transition: color 0.12s, border-color 0.12s;
+  }
+  .chip:hover { border-color: var(--accent-border); color: var(--accent); }
+  .chip.muted { cursor: default; opacity: 0.55; }
+  .chip.muted:hover { border-color: var(--border); color: var(--text2); }
+  .game-card-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 4px; }
+  .game-card:hover .game-card-actions { display: flex; }
+  .game-card-actions .icon-btn { background: rgba(0,0,0,0.72); border-color: var(--border2); color: var(--text); }
+
+  .add-game-card {
+    background: var(--bg2); border: 1px dashed var(--border2);
+    border-radius: var(--radius-lg); padding: 14px;
+    display: flex; flex-direction: column; gap: 8px; justify-content: center;
+    min-height: 180px;
+  }
+  .add-game-card .section-label { margin-bottom: 2px; }
+  /* .url-input is flex:1 for the topbar; in this column it must not stretch */
+  .add-game-card .url-input, .add-game-card .text-input { font-size: 12px; flex: 0 0 auto; width: 100%; }
+
+  .dash-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
+
+  .cat-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--radius);
+    cursor: pointer; transition: background 0.12s;
+  }
+  .cat-row:hover { background: var(--bg2); }
+  .cat-emoji {
+    width: 30px; height: 30px; border-radius: 7px; background: var(--bg3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .cat-info { flex: 1; min-width: 0; }
+  .cat-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-meta { font-size: 10px; font-family: var(--mono); color: var(--text3); margin-top: 1px; }
+  .cat-bar { width: 76px; height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden; flex-shrink: 0; }
+  .cat-bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .cat-count { font-size: 12px; font-family: var(--mono); color: var(--text2); min-width: 24px; text-align: right; }
+
+  .recent-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: var(--radius); cursor: pointer;
+  }
+  .recent-item:hover { background: var(--bg2); }
+  .recent-body { flex: 1; min-width: 0; }
+  .recent-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-meta {
+    font-size: 10px; font-family: var(--mono); color: var(--text3); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .recent-play { color: var(--text3); flex-shrink: 0; }
+  .recent-item:hover .recent-play { color: var(--accent); }
+  .recent-play svg { width: 13px; height: 13px; display: block; }
+
+  /* ── Sidebar game context ── */
+  .sidebar-sub {
+    font-size: 12px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px;
+  }
+  .cat-banner {
+    margin: 8px 8px 0; padding: 8px 10px; border-radius: var(--radius);
+    background: var(--info-bg); border: 1px solid var(--info-border);
+    font-size: 11px; color: var(--info); line-height: 1.45;
+  }
+  .cat-banner b { font-weight: 600; }
+
+  @media (max-width: 900px) {
+    .dash-cols { grid-template-columns: 1fr; }
+  }
+
   /* ── Scrollbars ── */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -454,7 +630,7 @@
 </head>
 <body>
 
-<div class="app">
+<div class="app mode-dashboard" id="app">
 
   <!-- ── Topbar ── -->
   <header class="topbar">
@@ -466,9 +642,23 @@
       Film Room
     </div>
     <div class="topbar-divider"></div>
-    <input class="url-input" id="yt-url" placeholder="Paste YouTube URL…" />
-    <button class="btn accent" onclick="loadVideo()">Load film</button>
-    <div class="topbar-divider"></div>
+
+    <!-- Film is chosen by name, never by re-pasting a URL -->
+    <button class="btn ghost film-only" onclick="setView('dashboard')" title="Back to the dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:-2px;margin-right:5px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <div class="game-switcher film-only" id="game-switcher">
+      <button class="game-switch-btn" onclick="toggleGameMenu(event)">
+        <span id="game-switch-emoji">🎬</span>
+        <span class="game-switch-name" id="game-switch-name">No film loaded</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="game-menu hidden" id="game-menu"></div>
+    </div>
+    <!-- loadVideo() and playClipAtIdx() still read the URL from here -->
+    <input type="hidden" id="yt-url" />
+    <div class="topbar-divider film-only"></div>
     <button class="btn" onclick="exportJSON()" title="Export all clips as JSON">Export</button>
     <button class="btn" onclick="document.getElementById('import-file').click()" title="Import clips from JSON">Import</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)" />
@@ -477,12 +667,16 @@
   <!-- ── Playlists sidebar ── -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <span class="sidebar-title">Playlists</span>
-      <button class="icon-btn" onclick="toggleAddPlaylist()" title="New playlist">
+      <div style="min-width:0">
+        <span class="sidebar-title">Playlists</span>
+        <div class="sidebar-sub" id="sidebar-game-name">—</div>
+      </div>
+      <button class="icon-btn" onclick="toggleAddPlaylist()" title="New playlist in this game">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
 
+    <div id="cat-banner-slot"></div>
     <div class="playlist-list" id="playlist-list"></div>
 
     <div class="pl-add-form" id="pl-add-form" style="display:none">
@@ -595,19 +789,36 @@
       <button class="btn ghost" style="flex:1;font-size:12px" onclick="clearAllClips()">Clear list</button>
     </div>
   </aside>
+
+  <!-- ── Dashboard ── -->
+  <section class="dashboard" id="dashboard"></section>
 </div>
 
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- Rename modal -->
+<!-- Rename modal (playlists and games share it) -->
 <div class="modal-overlay hidden" id="rename-modal">
   <div class="modal">
-    <h3>Rename playlist</h3>
-    <input type="text" class="text-input" id="rename-input" maxlength="40" />
+    <h3 id="rename-title">Rename playlist</h3>
+    <input type="text" class="text-input" id="rename-input" maxlength="80"
+           onkeydown="if(event.key==='Enter')confirmRename()" />
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeRenameModal()">Cancel</button>
       <button class="btn accent" onclick="confirmRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move clip to another playlist -->
+<div class="modal-overlay hidden" id="move-modal">
+  <div class="modal">
+    <h3>Move clip</h3>
+    <div class="section-label" id="move-sub">Choose a playlist</div>
+    <select class="pl-select" id="move-select"></select>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeMoveModal()">Cancel</button>
+      <button class="btn accent" onclick="confirmMove()">Move</button>
     </div>
   </div>
 </div>
@@ -619,9 +830,13 @@ let videoLoaded = false;
 let currentVideoId = null;
 let pendingSeek = null;   // {start, play} — applied once a newly loaded player is ready
 let clips = [];
-let playlists = [];
+let playlists = [];   // each belongs to exactly one game
+let games = [];       // a game is a title + the YouTube film it came from
 let activeClipIdx = -1;
-let activePl = null; // null = show all
+let activePl = null;       // null = every clip in the active game
+let activeGame = null;     // game id
+let activeCategory = null; // playlist NAME, rolled up across every game
+let view = 'dashboard';    // 'dashboard' | 'film'
 let isPlaying = false;
 let loopEnabled = false;
 let watchInterval = null;
@@ -629,6 +844,13 @@ let renameTarget = null;
 let selectedEmoji = '🏀';
 
 const EMOJIS = ['🏀','🎬','⚡','🔥','🛡️','🎯','💡','📌'];
+
+// Seeded into a brand-new game only when there's no previous game to copy from.
+const DEFAULT_CATEGORIES = [
+  { name: 'Offence',    emoji: '⚡' },
+  { name: 'Defence',    emoji: '🛡️' },
+  { name: 'Highlights', emoji: '🔥' },
+];
 
 /* ── Init ── */
 window.addEventListener('DOMContentLoaded', () => {
@@ -638,8 +860,10 @@ window.addEventListener('DOMContentLoaded', () => {
   renderClips();
   updatePlaylistSelect();
   updateBufDisplay();
-  // Reload the film we were last working on so clips stay playable across sessions
-  if (document.getElementById('yt-url').value) loadVideo();
+  renderGameSwitcher();
+  // The dashboard is home. The film itself loads lazily when a game is opened,
+  // so returning to a big library doesn't pull down a video you didn't ask for.
+  setView('dashboard');
 });
 
 /* ── Persistence ── */
@@ -647,6 +871,8 @@ function saveToStorage() {
   try {
     localStorage.setItem('filmroom_clips', JSON.stringify(clips));
     localStorage.setItem('filmroom_playlists', JSON.stringify(playlists));
+    localStorage.setItem('filmroom_games', JSON.stringify(games));
+    if (activeGame) localStorage.setItem('filmroom_active_game', activeGame);
     if (currentVideoId) localStorage.setItem('filmroom_video', currentVideoId);
   } catch(e) {}
 }
@@ -654,15 +880,79 @@ function loadFromStorage() {
   try {
     const c = localStorage.getItem('filmroom_clips');
     const p = localStorage.getItem('filmroom_playlists');
-    const v = localStorage.getItem('filmroom_video');
-    if (c) clips = JSON.parse(c);
-    if (p) playlists = JSON.parse(p);
-    if (v) document.getElementById('yt-url').value = 'https://www.youtube.com/watch?v=' + v;
-    if (!playlists.length) {
-      playlists = [{ id: uid(), name: 'General', emoji: '🏀' }];
-    }
+    const g = localStorage.getItem('filmroom_games');
+    if (c) clips     = JSON.parse(c) || [];
+    if (p) playlists = JSON.parse(p) || [];
+    if (g) games     = JSON.parse(g) || [];
   } catch(e) {
-    playlists = [{ id: uid(), name: 'General', emoji: '🏀' }];
+    clips = []; playlists = []; games = [];
+  }
+  // Saves made before games existed have flat playlists and no gameId
+  if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
+  activeGame = localStorage.getItem('filmroom_active_game') || null;
+  if (!games.some(g2 => g2.id === activeGame)) activeGame = games.length ? games[0].id : null;
+}
+
+/*
+ * Rebuild a game per distinct film, then copy each old playlist into every game
+ * that actually used it — so a "Defence" list spanning two films becomes a
+ * Defence playlist in each, holding the right clips. The dashboard rolls those
+ * back up by name, which is what makes cross-game categories work.
+ */
+function migrateToGames(legacyVideoId) {
+  if (!clips.length && !playlists.length && !legacyVideoId) return;
+
+  const byVideo = new Map();
+  clips.forEach(c => {
+    const vid = c.videoId || legacyVideoId || null;
+    const key = vid || '__unknown__';
+    if (!byVideo.has(key)) byVideo.set(key, { videoId: vid, list: [] });
+    byVideo.get(key).list.push(c);
+  });
+  // A film that was loaded but never clipped is still worth keeping
+  if (!byVideo.size && legacyVideoId) byVideo.set(legacyVideoId, { videoId: legacyVideoId, list: [] });
+
+  const oldPlaylists = playlists;
+  playlists = [];
+  let n = 0;
+
+  byVideo.forEach(({ videoId, list }) => {
+    n++;
+    const game = {
+      id: uid(),
+      title: 'Game ' + n,
+      videoId,
+      createdAt: Date.now(),
+      autoTitle: !!videoId,   // let the player fill in the real title later
+    };
+    games.push(game);
+
+    const byName = new Map();
+    list.forEach(c => {
+      const old   = oldPlaylists.find(pl => pl.id === c.playlistId);
+      const name  = old ? old.name  : 'General';
+      const emoji = old ? old.emoji : '🏀';
+      if (!byName.has(name)) {
+        const pl = { id: uid(), gameId: game.id, name, emoji };
+        byName.set(name, pl);
+        playlists.push(pl);
+      }
+      c.gameId     = game.id;
+      c.playlistId = byName.get(name).id;
+      if (!c.videoId && videoId) c.videoId = videoId;
+    });
+    if (!byName.size) playlists.push({ id: uid(), gameId: game.id, name: 'General', emoji: '🏀' });
+  });
+
+  // Playlists that never held a clip would otherwise vanish — park them on the
+  // first game so the categories the user set up survive the upgrade.
+  const first = games[0];
+  if (first) {
+    oldPlaylists.forEach(op => {
+      if (!playlists.some(pl => pl.name === op.name)) {
+        playlists.push({ id: uid(), gameId: first.id, name: op.name, emoji: op.emoji });
+      }
+    });
   }
 }
 
@@ -745,6 +1035,7 @@ function createPlayer(vid) {
     events: {
       onReady: () => {
         videoLoaded = true;
+        tryAutoTitle(vid);
         document.getElementById('play-btn').disabled = activeClipIdx < 0;
         if (pendingSeek) {
           const p = pendingSeek; pendingSeek = null;
@@ -834,7 +1125,12 @@ function toggleAddPlaylist() {
 function createPlaylist() {
   const name = document.getElementById('pl-name-input').value.trim();
   if (!name) { toast('Enter a playlist name'); return; }
-  playlists.push({ id: uid(), name, emoji: selectedEmoji });
+  const game = currentGame();
+  if (!game) { toast('Open a game first — playlists belong to a game'); return; }
+  if (gamePlaylists(game.id).some(pl => pl.name.toLowerCase() === name.toLowerCase())) {
+    toast('"' + name + '" already exists in this game'); return;
+  }
+  playlists.push({ id: uid(), gameId: game.id, name, emoji: selectedEmoji });
   document.getElementById('pl-name-input').value = '';
   toggleAddPlaylist();
   saveToStorage();
@@ -843,35 +1139,61 @@ function createPlaylist() {
   toast('Playlist created');
 }
 function deletePlaylist(id) {
-  if (!confirm('Delete this playlist? Clips will move to General.')) return;
-  const general = playlists.find(p => p.name === 'General') || playlists[0];
-  clips.forEach(c => { if (c.playlistId === id) c.playlistId = general.id; });
+  const pl = playlists.find(p => p.id === id);
+  if (!pl) return;
+  const held = clips.filter(c => c.playlistId === id).length;
+  const msg = held
+    ? 'Delete "' + pl.name + '"? Its ' + held + ' clip(s) move to General in this game.'
+    : 'Delete "' + pl.name + '"?';
+  if (!confirm(msg)) return;
+
+  // Clips stay inside their own game — never spill into another game's General
+  const siblings = gamePlaylists(pl.gameId).filter(p => p.id !== id);
+  let fallback = siblings.find(p => p.name === 'General') || siblings[0];
+  if (!fallback) {
+    fallback = { id: uid(), gameId: pl.gameId, name: 'General', emoji: '🏀' };
+    playlists.push(fallback);
+  }
+  clips.forEach(c => { if (c.playlistId === id) c.playlistId = fallback.id; });
   playlists = playlists.filter(p => p.id !== id);
-  if (!playlists.length) playlists.push({ id: uid(), name: 'General', emoji: '🏀' });
   if (activePl === id) activePl = null;
   saveToStorage();
   renderPlaylists();
   renderClips();
   updatePlaylistSelect();
 }
-function openRenameModal(id) {
-  renameTarget = id;
-  const pl = playlists.find(p => p.id === id);
-  document.getElementById('rename-input').value = pl ? pl.name : '';
+function openRenameModal(id, type) {
+  type = type || 'playlist';
+  renameTarget = { type, id };
+  const subject = type === 'game'
+    ? games.find(g => g.id === id)
+    : playlists.find(p => p.id === id);
+  document.getElementById('rename-title').textContent = type === 'game' ? 'Rename game' : 'Rename playlist';
+  const input = document.getElementById('rename-input');
+  input.value = subject ? (type === 'game' ? subject.title : subject.name) : '';
   document.getElementById('rename-modal').classList.remove('hidden');
-  document.getElementById('rename-input').focus();
+  input.focus();
+  input.select();
 }
 function closeRenameModal() { document.getElementById('rename-modal').classList.add('hidden'); renameTarget = null; }
 function confirmRename() {
   const name = document.getElementById('rename-input').value.trim();
   if (!name) { toast('Enter a name'); return; }
-  const pl = playlists.find(p => p.id === renameTarget);
-  if (pl) pl.name = name;
+  if (!renameTarget) return;
+  if (renameTarget.type === 'game') {
+    const g = games.find(x => x.id === renameTarget.id);
+    // A hand-typed title outranks whatever YouTube would have supplied
+    if (g) { g.title = name; g.autoTitle = false; }
+  } else {
+    const pl = playlists.find(p => p.id === renameTarget.id);
+    if (pl) {
+      if (activeCategory === pl.name) activeCategory = name;
+      pl.name = name;
+    }
+  }
   closeRenameModal();
   saveToStorage();
-  renderPlaylists();
-  updatePlaylistSelect();
-  renderClips();
+  renderAll();
 }
 function clearNowPlaying() {
   activeClipIdx = -1;
@@ -884,27 +1206,43 @@ function selectPlaylist(id) {
   // clip once the filter changes. Follow the selected clip across the switch,
   // or drop the selection if it isn't in the new view.
   const current = visibleClips()[activeClipIdx];
+  activeCategory = null;
   activePl = id;
   const idx = current ? visibleClips().findIndex(c => c.id === current.id) : -1;
   if (idx < 0) { stopWatcher(); clearNowPlaying(); }
   else activeClipIdx = idx;
   renderPlaylists();
   renderClips();
-  const pl = id ? playlists.find(p => p.id === id) : null;
-  document.getElementById('clips-panel-title').textContent = pl ? pl.name : 'All clips';
+  updateClipsTitle();
 }
 function renderPlaylists() {
-  const allCount = clips.length;
+  const game = currentGame();
+  document.getElementById('sidebar-game-name').textContent = game ? game.title : 'No game open';
+
+  // A cross-game category isn't one of this game's playlists — say so plainly
+  const slot = document.getElementById('cat-banner-slot');
+  slot.innerHTML = activeCategory
+    ? `<div class="cat-banner">Showing <b>${esc(activeCategory)}</b> across every game.
+         <span style="cursor:pointer;text-decoration:underline" onclick="selectPlaylist(null)">Back to this game</span></div>`
+    : '';
+
   const list = document.getElementById('playlist-list');
+  if (!game) {
+    list.innerHTML = `<div class="empty-state"><span>Open a game to see its playlists</span></div>`;
+    return;
+  }
+
+  const mine = gamePlaylists(game.id);
+  const allCount = gameClips(game.id).length;
   let html = `
-    <div class="playlist-item${activePl === null ? ' active' : ''}" onclick="selectPlaylist(null)">
+    <div class="playlist-item${(activePl === null && !activeCategory) ? ' active' : ''}" onclick="selectPlaylist(null)">
       <div class="pl-icon">📋</div>
       <div class="pl-info">
         <div class="pl-name">All clips</div>
-        <div class="pl-count">${allCount} clip${allCount !== 1 ? 's' : ''}</div>
+        <div class="pl-count">${allCount} clip${allCount !== 1 ? 's' : ''} in this game</div>
       </div>
     </div>`;
-  playlists.forEach(pl => {
+  mine.forEach(pl => {
     const count = clips.filter(c => c.playlistId === pl.id).length;
     html += `
       <div class="playlist-item${activePl === pl.id ? ' active' : ''}" onclick="selectPlaylist('${pl.id}')">
@@ -914,7 +1252,7 @@ function renderPlaylists() {
           <div class="pl-count">${count} clip${count !== 1 ? 's' : ''}</div>
         </div>
         <div class="pl-actions">
-          <button class="icon-btn" onclick="event.stopPropagation();openRenameModal('${pl.id}')" title="Rename">
+          <button class="icon-btn" onclick="event.stopPropagation();openRenameModal('${pl.id}','playlist')" title="Rename">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="icon-btn danger" onclick="event.stopPropagation();deletePlaylist('${pl.id}')" title="Delete">
@@ -927,12 +1265,27 @@ function renderPlaylists() {
 }
 function updatePlaylistSelect() {
   const sel = document.getElementById('clip-playlist');
-  sel.innerHTML = playlists.map(pl => `<option value="${pl.id}">${pl.emoji} ${esc(pl.name)}</option>`).join('');
+  const prev = sel.value;
+  // Scope to the game whose film is on screen — in a cross-game category view
+  // that is not necessarily the game in the sidebar.
+  const game = filmGame();
+  const opts = game ? gamePlaylists(game.id) : [];
+  sel.innerHTML = opts.length
+    ? opts.map(pl => `<option value="${pl.id}">${pl.emoji} ${esc(pl.name)}</option>`).join('')
+    : '<option value="">No playlists yet</option>';
+  if (opts.some(pl => pl.id === prev)) sel.value = prev;
 }
 
 /* ── Clips ── */
 function visibleClips() {
-  return activePl === null ? clips : clips.filter(c => c.playlistId === activePl);
+  // A category spans games: match every playlist sharing that name
+  if (activeCategory) {
+    const ids = new Set(playlists.filter(p => p.name === activeCategory).map(p => p.id));
+    return clips.filter(c => ids.has(c.playlistId));
+  }
+  let list = activeGame ? clips.filter(c => c.gameId === activeGame) : clips;
+  if (activePl) list = list.filter(c => c.playlistId === activePl);
+  return list;
 }
 function addClip() {
   const startStr = document.getElementById('start-time').value;
@@ -945,17 +1298,29 @@ function addClip() {
   const bufBefore = parseFloat(document.getElementById('buf-before').value);
   const bufAfter = parseFloat(document.getElementById('buf-after').value);
   const label = document.getElementById('clip-label').value.trim() || ('Clip ' + (clips.length + 1));
-  const playlistId = document.getElementById('clip-playlist').value || (playlists[0] && playlists[0].id);
-  const clip = { id: uid(), label, videoId: currentVideoId, start, end, bufBefore, bufAfter, effStart: Math.max(0, start - bufBefore), effEnd: end + bufAfter, playlistId };
+  const game = filmGame();
+  if (!game) { toast('This film has no game — open one from the dashboard'); return; }
+  let playlistId = document.getElementById('clip-playlist').value;
+  if (!playlistId || !playlists.some(pl => pl.id === playlistId && pl.gameId === game.id)) {
+    // Every clip needs a home, even in a game whose playlists were all deleted
+    const own = gamePlaylists(game.id);
+    const fallback = own[0] || { id: uid(), gameId: game.id, name: 'General', emoji: '🏀' };
+    if (!own.length) playlists.push(fallback);
+    playlistId = fallback.id;
+  }
+  const clip = { id: uid(), label, videoId: currentVideoId, gameId: game.id, start, end, bufBefore, bufAfter, effStart: Math.max(0, start - bufBefore), effEnd: end + bufAfter, playlistId };
   clips.push(clip);
   document.getElementById('start-time').value = '';
   document.getElementById('end-time').value = '';
   document.getElementById('clip-label').value = '';
   saveToStorage();
   renderPlaylists();
+  updatePlaylistSelect();
   renderClips();
+  // The new clip may not be in view (wrong playlist filter) — select it only if it is
   const vis = visibleClips();
-  selectClipByIdx(vis.length - 1);
+  const idx = vis.findIndex(c => c.id === clip.id);
+  if (idx >= 0) selectClipByIdx(idx);
   toast('Clip added — press Play to watch it');
 }
 function selectClipByIdx(idx) {
@@ -993,7 +1358,9 @@ function playClipAtIdx(idx, opts) {
     loadVideo(clip.videoId);
     return;
   }
-  if (!player || !videoLoaded) return;
+  // Player still spinning up (e.g. jumped straight here from the dashboard) —
+  // hand the seek to onReady rather than dropping it on the floor
+  if (!player || !videoLoaded) { pendingSeek = { start: clip.effStart, play: true }; return; }
   player.seekTo(clip.effStart, true);
   player.playVideo();
 }
@@ -1048,9 +1415,12 @@ function clearAllClips() {
   if (!list.length) return;
   // On "All clips" this wipes every playlist, not just what's on screen — say so.
   const pl = activePl === null ? null : playlists.find(p => p.id === activePl);
-  const scope = pl
-    ? `all ${list.length} clip(s) in "${pl.name}"`
-    : `all ${list.length} clip(s) across every playlist`;
+  const game = currentGame();
+  let scope;
+  if (activeCategory)  scope = `all ${list.length} clip(s) in "${activeCategory}" across every game`;
+  else if (pl)         scope = `all ${list.length} clip(s) in "${pl.name}"`;
+  else if (game)       scope = `all ${list.length} clip(s) in "${game.title}"`;
+  else                 scope = `all ${list.length} clip(s)`;
   if (!confirm(`Delete ${scope}?\n\nThis cannot be undone.`)) return;
   const ids = new Set(list.map(c => c.id));
   clips = clips.filter(c => !ids.has(c.id));
@@ -1099,17 +1469,25 @@ function renderClips() {
   }
   list.innerHTML = vis.map((c, i) => {
     const pl = playlists.find(p => p.id === c.playlistId);
+    const g  = games.find(x => x.id === c.gameId);
+    // In a cross-game category the useful label is the game; otherwise it's the playlist
+    let badge = '';
+    if (activeCategory && g)      badge = `<span class="clip-pl-badge">🎬 ${esc(g.title)}</span>`;
+    else if (!activePl && pl)     badge = `<span class="clip-pl-badge">${pl.emoji} ${esc(pl.name)}</span>`;
     return `
       <div class="clip-item${i === activeClipIdx ? ' active' : ''}" onclick="selectClipByIdx(${i})">
         <div class="clip-num">${i + 1}</div>
         <div class="clip-body">
           <div class="clip-label-text">${esc(c.label)}</div>
           <div class="clip-meta">${fmt(c.effStart)} → ${fmt(c.effEnd)} &nbsp;·&nbsp; -${c.bufBefore}s / +${c.bufAfter}s</div>
-          ${pl && activePl === null ? `<span class="clip-pl-badge">${pl.emoji} ${esc(pl.name)}</span>` : ''}
+          ${badge}
         </div>
         <div class="clip-btns">
           <button class="icon-btn" onclick="event.stopPropagation();playClipAtIdx(${i})" title="Play this clip">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="icon-btn" onclick="event.stopPropagation();openMoveModal('${c.id}')" title="Move to another playlist">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H3z"/><path d="M12 12v6M9 15h6"/></svg>
           </button>
           <button class="icon-btn danger" onclick="event.stopPropagation();deleteClip('${c.id}')" title="Delete">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -1121,7 +1499,8 @@ function renderClips() {
 
 /* ── Import / Export ── */
 function exportJSON() {
-  const data = { playlists, clips };
+  // version 2 adds games; clips keep videoId so old downloaders still work
+  const data = { version: 2, games, playlists, clips };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1136,21 +1515,434 @@ function importJSON(event) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.clips) clips = data.clips;
-      if (data.playlists) playlists = data.playlists;
-      if (!playlists.length) playlists = [{ id: uid(), name: 'General', emoji: '🏀' }];
+      if (!data.clips && !data.playlists && !data.games) { toast('Invalid file'); return; }
+      clips     = data.clips     || [];
+      playlists = data.playlists || [];
+      games     = data.games     || [];
+      // A version 1 export has no games — rebuild them from the clips' videoIds
+      if (!games.length) migrateToGames(null);
+      activeGame = games.length ? games[0].id : null;
+      activePl = null; activeCategory = null;
+      currentVideoId = null;
+      stopWatcher(); clearNowPlaying();
       saveToStorage();
-      renderPlaylists(); renderClips(); updatePlaylistSelect();
-      toast('Imported ' + clips.length + ' clips');
+      setView('dashboard');
+      renderAll();
+      toast('Imported ' + clips.length + ' clip(s) across ' + games.length + ' game(s)');
     } catch { toast('Invalid file'); }
   };
   reader.readAsText(file);
   event.target.value = '';
 }
 
+/* ── Games ───────────────────────────────────────────────────────────────── */
+function currentGame()      { return games.find(g => g.id === activeGame) || null; }
+function gamePlaylists(id)  { return playlists.filter(p => p.gameId === id); }
+function gameClips(id)      { return clips.filter(c => c.gameId === id); }
+
+/*
+ * The game whose film is actually on screen. In a cross-game category view the
+ * sidebar's game and the loaded film differ, and new clips must follow the film.
+ */
+function filmGame() {
+  return games.find(g => g.videoId && g.videoId === currentVideoId) || currentGame();
+}
+
+function thumbFor(videoId) {
+  return videoId ? 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg' : '';
+}
+
+/* A new game inherits the previous game's categories, so a season keeps one
+ * vocabulary and the dashboard's cross-game rollup lines up. */
+function seedPlaylists(gameId) {
+  const prev = games.filter(g => g.id !== gameId).slice(-1)[0];
+  const template = prev
+    ? gamePlaylists(prev.id).map(pl => ({ name: pl.name, emoji: pl.emoji }))
+    : [];
+  (template.length ? template : DEFAULT_CATEGORIES).forEach(t => {
+    playlists.push({ id: uid(), gameId, name: t.name, emoji: t.emoji });
+  });
+}
+
+function createGame(url, title) {
+  const vid = extractVideoId(url || '');
+  if (!vid) { toast('Could not find a YouTube video ID in that URL.'); return; }
+
+  // The whole point of storing the link: paste it once, then pick by name
+  const existing = games.find(g => g.videoId === vid);
+  if (existing) { toast('Already saved as "' + existing.title + '"'); openGame(existing.id); return; }
+
+  const typed = (title || '').trim();
+  const game = {
+    id: uid(),
+    title: typed || 'Untitled film',
+    videoId: vid,
+    createdAt: Date.now(),
+    autoTitle: !typed,      // let the player supply a real title if we have none
+  };
+  games.push(game);
+  seedPlaylists(game.id);
+  saveToStorage();
+  openGame(game.id);
+  toast('Game added');
+}
+
+/* Fill in a title from the player, so a pasted link names itself. Best effort:
+ * getVideoData() is often empty at onReady, hence the single retry. */
+function tryAutoTitle(vid) {
+  const apply = () => {
+    const g = games.find(x => x.videoId === vid);
+    if (!g || !g.autoTitle || !player || !player.getVideoData) return false;
+    let data = null;
+    try { data = player.getVideoData(); } catch(e) { return false; }
+    if (!data || !data.title) return false;
+    g.title = data.title;
+    g.autoTitle = false;
+    saveToStorage();
+    renderGameSwitcher();
+    renderPlaylists();
+    if (view === 'dashboard') renderDashboard();
+    return true;
+  };
+  if (!apply()) setTimeout(apply, 1500);
+}
+
+function openGame(id, opts) {
+  opts = opts || {};
+  const game = games.find(g => g.id === id);
+  if (!game) return;
+  activeGame = id;
+  activeCategory = null;
+  activePl = opts.playlistId || null;
+  stopWatcher();
+  clearNowPlaying();
+  playAllMode = false; updatePlayAllBtn();
+  saveToStorage();
+  setView('film');
+  renderAll();
+  if (game.videoId && game.videoId !== currentVideoId) loadVideo(game.videoId);
+}
+
+function deleteGame(id) {
+  const g = games.find(x => x.id === id);
+  if (!g) return;
+  const n = gameClips(id).length;
+  if (!confirm('Delete "' + g.title + '" and its ' + n + ' clip(s)?\n\nThis cannot be undone.')) return;
+  clips     = clips.filter(c => c.gameId !== id);
+  playlists = playlists.filter(pl => pl.gameId !== id);
+  games     = games.filter(x => x.id !== id);
+  if (activeGame === id) {
+    activeGame = games.length ? games[0].id : null;
+    activePl = null;
+    currentVideoId = null;
+    videoLoaded = false;
+    if (player && player.destroy) { try { player.destroy(); } catch(e) {} }
+    player = null;
+    document.getElementById('player-container').style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+  }
+  activeCategory = null;
+  stopWatcher(); clearNowPlaying();
+  saveToStorage();
+  renderAll();
+}
+
+/* ── Cross-game categories ───────────────────────────────────────────────── */
+/* Playlists sharing a name across games are one category. */
+function openCategory(name) {
+  activeCategory = name;
+  activePl = null;
+  stopWatcher();
+  clearNowPlaying();
+  playAllMode = false; updatePlayAllBtn();
+  setView('film');
+  renderAll();
+  toast('Play all works across games here');
+}
+
+function categoryRollup() {
+  const map = new Map();
+  const seed = (name, emoji) => {
+    if (!map.has(name)) map.set(name, { name, emoji, count: 0, seconds: 0, games: new Set() });
+    return map.get(name);
+  };
+  // Seed from playlists first so a category you made but haven't filled shows up
+  playlists.forEach(pl => seed(pl.name, pl.emoji).games.add(pl.gameId));
+  clips.forEach(c => {
+    const pl = playlists.find(x => x.id === c.playlistId);
+    if (!pl) return;
+    const e = seed(pl.name, pl.emoji);
+    e.count++;
+    e.seconds += clipDuration(c);
+  });
+  return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+function clipDuration(c) { return Math.max(0, (c.effEnd || 0) - (c.effStart || 0)); }
+
+function fmtDuration(total) {
+  total = Math.round(total);
+  if (total < 60) return total + 's';
+  const m = Math.floor(total / 60), sec = total % 60;
+  if (m < 60) return m + 'm ' + String(sec).padStart(2, '0') + 's';
+  return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
+}
+
+/* ── View switching ──────────────────────────────────────────────────────── */
+function setView(v) {
+  view = v;
+  document.getElementById('app').className = 'app mode-' + v;
+  closeGameMenu();
+  if (v === 'dashboard') {
+    // The player is only hidden, not destroyed — stop it so audio doesn't trail
+    stopWatcher();
+    playAllMode = false; updatePlayAllBtn();
+    if (player && player.pauseVideo) { try { player.pauseVideo(); } catch(e) {} }
+    renderDashboard();
+  }
+}
+
+function updateClipsTitle() {
+  const el = document.getElementById('clips-panel-title');
+  if (activeCategory) { el.textContent = activeCategory + ' · all games'; return; }
+  const pl = activePl ? playlists.find(p => p.id === activePl) : null;
+  el.textContent = pl ? pl.name : 'All clips';
+}
+
+function renderAll() {
+  renderPlaylists();
+  renderClips();
+  updatePlaylistSelect();
+  updateClipsTitle();
+  renderGameSwitcher();
+  if (view === 'dashboard') renderDashboard();
+}
+
+/* ── Game switcher ───────────────────────────────────────────────────────── */
+function renderGameSwitcher() {
+  const game = currentGame();
+  document.getElementById('game-switch-name').textContent =
+    activeCategory ? activeCategory + ' · all games' : (game ? game.title : 'No film loaded');
+  document.getElementById('game-switch-emoji').textContent = activeCategory ? '🗂️' : '🎬';
+
+  const menu = document.getElementById('game-menu');
+  let html = games.map(g => {
+    const n = gameClips(g.id).length;
+    const thumb = thumbFor(g.videoId);
+    return `
+      <div class="game-menu-item${g.id === activeGame && !activeCategory ? ' active' : ''}" onclick="openGame('${g.id}')">
+        ${thumb ? `<img class="gm-thumb" src="${thumb}" alt="" onerror="this.style.visibility='hidden'" />`
+                : `<div class="gm-thumb"></div>`}
+        <div class="gm-info">
+          <div class="gm-name">${esc(g.title)}</div>
+          <div class="gm-count">${n} clip${n !== 1 ? 's' : ''} · ${gamePlaylists(g.id).length} playlist(s)</div>
+        </div>
+      </div>`;
+  }).join('');
+  if (!games.length) html = `<div class="empty-state" style="padding:1.5rem 1rem"><span>No games yet</span></div>`;
+  html += `<div class="game-menu-sep"></div>
+    <div class="game-menu-action" onclick="setView('dashboard')">＋  New game…</div>`;
+  menu.innerHTML = html;
+}
+
+function toggleGameMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('game-menu');
+  const opening = menu.classList.contains('hidden');
+  if (opening) renderGameSwitcher();
+  menu.classList.toggle('hidden', !opening);
+}
+function closeGameMenu() {
+  const menu = document.getElementById('game-menu');
+  if (menu) menu.classList.add('hidden');
+}
+document.addEventListener('click', (e) => {
+  const sw = document.getElementById('game-switcher');
+  if (sw && !sw.contains(e.target)) closeGameMenu();
+});
+
+/* ── Move a clip between playlists ───────────────────────────────────────── */
+let moveTarget = null;
+function openMoveModal(clipId) {
+  const c = clips.find(x => x.id === clipId);
+  if (!c) return;
+  moveTarget = clipId;
+  // Only this clip's own game — moving a clip between games would orphan its film
+  const own = gamePlaylists(c.gameId);
+  const g = games.find(x => x.id === c.gameId);
+  document.getElementById('move-sub').textContent = g ? 'Playlists in ' + g.title : 'Choose a playlist';
+  const sel = document.getElementById('move-select');
+  sel.innerHTML = own.map(pl =>
+    `<option value="${pl.id}"${pl.id === c.playlistId ? ' selected' : ''}>${pl.emoji} ${esc(pl.name)}</option>`
+  ).join('') || '<option value="">No playlists in this game</option>';
+  document.getElementById('move-modal').classList.remove('hidden');
+}
+function closeMoveModal() {
+  document.getElementById('move-modal').classList.add('hidden');
+  moveTarget = null;
+}
+function confirmMove() {
+  const id = document.getElementById('move-select').value;
+  const c = clips.find(x => x.id === moveTarget);
+  if (c && id) {
+    // Follow the clip across the move — the filtered list is about to change
+    const wasActive = visibleClips()[activeClipIdx];
+    c.playlistId = id;
+    const idx = wasActive ? visibleClips().findIndex(x => x.id === wasActive.id) : -1;
+    if (idx < 0) { stopWatcher(); clearNowPlaying(); } else activeClipIdx = idx;
+    saveToStorage();
+    toast('Clip moved');
+  }
+  closeMoveModal();
+  renderAll();
+}
+
+/* ── Dashboard ───────────────────────────────────────────────────────────── */
+function playClipFromDashboard(clipId) {
+  const c = clips.find(x => x.id === clipId);
+  if (!c) return;
+  openGame(c.gameId, { playlistId: c.playlistId });
+  const idx = visibleClips().findIndex(x => x.id === clipId);
+  if (idx >= 0) playClipAtIdx(idx);   // seek is queued if the player is still loading
+}
+
+function addGameFromForm() {
+  const url = document.getElementById('new-game-url').value;
+  const title = document.getElementById('new-game-title').value;
+  if (!url.trim()) { toast('Paste a YouTube URL'); return; }
+  document.getElementById('new-game-url').value = '';
+  document.getElementById('new-game-title').value = '';
+  createGame(url, title);
+}
+
+function renderDashboard() {
+  const el = document.getElementById('dashboard');
+  const totalSecs = clips.reduce((sum, c) => sum + clipDuration(c), 0);
+  const cats = categoryRollup();
+  const maxCat = cats.reduce((m, c) => Math.max(m, c.count), 0) || 1;
+
+  const stats = [
+    ['Games',      games.length],
+    ['Clips',      clips.length],
+    ['Categories', new Set(playlists.map(p => p.name)).size],
+    ['Footage',    fmtDuration(totalSecs)],
+  ].map(([label, val]) => `
+    <div class="stat"><div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`
+  ).join('');
+
+  const gameCards = games.map(g => {
+    const n = gameClips(g.id).length;
+    const secs = gameClips(g.id).reduce((sum, c) => sum + clipDuration(c), 0);
+    const thumb = thumbFor(g.videoId);
+    const chips = gamePlaylists(g.id).map(pl => {
+      const count = clips.filter(c => c.playlistId === pl.id).length;
+      return `<span class="chip${count ? '' : ' muted'}"
+        onclick="event.stopPropagation();openGame('${g.id}',{playlistId:'${pl.id}'})"
+        >${pl.emoji} ${esc(pl.name)}${count ? ' · ' + count : ''}</span>`;
+    }).join('');
+    return `
+      <div class="game-card${g.id === activeGame ? ' active' : ''}" onclick="openGame('${g.id}')">
+        <div class="game-thumb">
+          ${thumb ? `<img src="${thumb}" alt="" onerror="this.style.display='none'" />` : ''}
+          <span class="game-thumb-badge">${n} clip${n !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="game-card-actions">
+          <button class="icon-btn" onclick="event.stopPropagation();openRenameModal('${g.id}','game')" title="Rename game">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="icon-btn danger" onclick="event.stopPropagation();deleteGame('${g.id}')" title="Delete game">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+        <div class="game-card-body">
+          <div class="game-card-title">${esc(g.title)}</div>
+          <div class="game-card-meta">${fmtDuration(secs)} of clips</div>
+          <div class="game-chips">${chips}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const addCard = `
+    <div class="add-game-card">
+      <div class="section-label">Add a game</div>
+      <input class="url-input" id="new-game-url" placeholder="Paste YouTube URL…"
+             onkeydown="if(event.key==='Enter')addGameFromForm()" />
+      <input class="text-input" id="new-game-title" placeholder="Game title (optional)"
+             onkeydown="if(event.key==='Enter')addGameFromForm()" />
+      <button class="btn accent" onclick="addGameFromForm()">Add game</button>
+      <div style="font-size:10px;color:var(--text3);line-height:1.4">
+        Leave the title blank and it's taken from the video.
+      </div>
+    </div>`;
+
+  const catRows = cats.length ? cats.map(c => `
+    <div class="cat-row" onclick="openCategory('${esc(c.name).replace(/'/g, "\\'")}')">
+      <div class="cat-emoji">${c.emoji}</div>
+      <div class="cat-info">
+        <div class="cat-name">${esc(c.name)}</div>
+        <div class="cat-meta">${c.games.size} game${c.games.size !== 1 ? 's' : ''} · ${fmtDuration(c.seconds)}</div>
+      </div>
+      <div class="cat-bar"><span style="width:${Math.round((c.count / maxCat) * 100)}%"></span></div>
+      <div class="cat-count">${c.count}</div>
+    </div>`).join('')
+    : `<div class="empty-state"><span>No categories yet</span></div>`;
+
+  const recent = clips.slice(-9).reverse().map(c => {
+    const g = games.find(x => x.id === c.gameId);
+    const pl = playlists.find(x => x.id === c.playlistId);
+    return `
+      <div class="recent-item" onclick="playClipFromDashboard('${c.id}')">
+        <div class="cat-emoji">${pl ? pl.emoji : '🎬'}</div>
+        <div class="recent-body">
+          <div class="recent-label">${esc(c.label)}</div>
+          <div class="recent-meta">${g ? esc(g.title) : 'Unknown game'} · ${fmt(c.effStart)} → ${fmt(c.effEnd)}</div>
+        </div>
+        <div class="recent-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+      </div>`;
+  }).join('') || `<div class="empty-state"><span>No clips yet</span></div>`;
+
+  el.innerHTML = `
+    <div class="dash-inner">
+      <div class="dash-head">
+        <div>
+          <h1>Film library</h1>
+          <div class="dash-sub">Every clip you've cut, across every game.</div>
+        </div>
+        <div class="dash-stats">${stats}</div>
+      </div>
+
+      <div class="dash-section">
+        <div class="dash-section-head">
+          <h2>Games</h2>
+          <span class="clip-count-badge">${games.length}</span>
+          ${games.length ? `<span class="dash-hint">Click a game to open the film room · click a chip to jump straight to that playlist</span>` : ''}
+        </div>
+        <div class="game-grid">${gameCards}${addCard}</div>
+      </div>
+
+      <div class="dash-cols">
+        <div class="dash-section">
+          <div class="dash-section-head">
+            <h2>Categories</h2>
+            <span class="dash-hint">Across all games</span>
+          </div>
+          ${catRows}
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-head">
+            <h2>Recent clips</h2>
+          </div>
+          ${recent}
+        </div>
+      </div>
+    </div>`;
+}
+
 /* keyboard shortcuts */
 document.addEventListener('keydown', (e) => {
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if (e.key === 'Escape') { closeGameMenu(); closeRenameModal(); closeMoveModal(); return; }
+  if (view !== 'film') return;   // no hidden player to drive from the dashboard
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   if (e.key === 'ArrowRight') nextClip();
   if (e.key === 'ArrowLeft') prevClip();

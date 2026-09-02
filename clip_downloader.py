@@ -6,8 +6,16 @@ Downloads and cuts clips from a Film Room JSON export into individual MP4s.
 
 Usage:
     python clip_downloader.py filmroom-clips.json
+    python clip_downloader.py filmroom-clips.json --list
+    python clip_downloader.py filmroom-clips.json --game "Round 3 vs Eagles"
     python clip_downloader.py filmroom-clips.json --playlist "Offence"
+    python clip_downloader.py filmroom-clips.json --game "Round 3" --playlist "Offence"
     python clip_downloader.py filmroom-clips.json --playlist "Offence" --output ./my_clips
+
+Playlists belong to a game, so the same category name usually exists in several
+games. `--playlist "Offence"` deliberately matches all of them — that is how you
+pull one category across a whole season. Narrow it to a single game with
+`--game`. Exports written by older versions have no games and still work.
 
 Setup:
     python3.13 -m venv filmroom-env
@@ -151,32 +159,92 @@ def fmt_time(sec: float) -> str:
 def load_json(path: str):
     with open(path) as f:
         data = json.load(f)
+    games     = data.get("games", [])       # absent in pre-games exports
     playlists = data.get("playlists", [])
     clips     = data.get("clips", [])
-    return playlists, clips
+    return games, playlists, clips
 
 
-def pick_playlist(playlists, filter_name: str | None):
-    """Return the playlist id to filter by, or None for all clips."""
-    if not filter_name:
-        return None, "All clips"
-    for pl in playlists:
-        if pl["name"].lower() == filter_name.lower():
-            return pl["id"], pl["name"]
-    # Fuzzy fallback
-    matches = [pl for pl in playlists if filter_name.lower() in pl["name"].lower()]
+def match_by_name(items: list, key: str, wanted: str) -> list:
+    """Exact (case-insensitive) matches if there are any, else substring ones."""
+    w = wanted.lower()
+    exact = [i for i in items if str(i.get(key, "")).lower() == w]
+    return exact or [i for i in items if w in str(i.get(key, "")).lower()]
+
+
+def print_library(games, playlists, clips):
+    """Show what's in the export so you can copy a name into --game/--playlist."""
+    if games:
+        for g in games:
+            g_clips = [c for c in clips if c.get("gameId") == g["id"]]
+            print(f"\n  {bold(g.get('title', 'Untitled'))}  {C.DIM}({len(g_clips)} clip(s)){C.RESET}")
+            for pl in [p for p in playlists if p.get("gameId") == g["id"]]:
+                n = len([c for c in clips if c.get("playlistId") == pl["id"]])
+                print(f"      • {pl['name']}  {C.DIM}({n}){C.RESET}")
+    else:
+        print(f"\n  {C.DIM}(no games in this export){C.RESET}")
+        for pl in playlists:
+            n = len([c for c in clips if c.get("playlistId") == pl["id"]])
+            print(f"      • {pl['name']}  {C.DIM}({n}){C.RESET}")
+    print()
+
+
+def pick_game(games: list, name: str):
+    """Resolve --game to exactly one game, or explain what's available."""
+    matches = match_by_name(games, "title", name)
     if len(matches) == 1:
-        return matches[0]["id"], matches[0]["name"]
-    if len(matches) > 1:
-        err(f"Ambiguous playlist name '{filter_name}'. Matches:")
+        return matches[0]
+    if not matches:
+        err(f"No game matching '{name}'.")
+    else:
+        err(f"Ambiguous game name '{name}'. Matches:")
         for m in matches:
-            print(f"    • {m['name']}")
+            print(f"    • {m.get('title')}")
         sys.exit(1)
-    err(f"No playlist named '{filter_name}'.")
-    print("  Available playlists:")
-    for pl in playlists:
-        print(f"    • {pl['name']}")
+    print("  Available games:")
+    for g in games:
+        print(f"    • {g.get('title')}")
     sys.exit(1)
+
+
+def select_clips(games, playlists, clips, game_name, playlist_name):
+    """
+    Narrow the export by game and/or playlist.
+
+    A playlist name is matched across every game unless --game pins it to one,
+    so "Offence" pulls that category for the whole season in a single run.
+    """
+    selected = clips
+    parts = []
+
+    game = None
+    if game_name:
+        if not games:
+            err("This export has no games in it — drop --game.")
+            sys.exit(1)
+        game = pick_game(games, game_name)
+        selected = [c for c in selected if c.get("gameId") == game["id"]]
+        parts.append(game.get("title", "game"))
+
+    if playlist_name:
+        pool = playlists if game is None else [p for p in playlists if p.get("gameId") == game["id"]]
+        matches = match_by_name(pool, "name", playlist_name)
+        if not matches:
+            err(f"No playlist named '{playlist_name}'" + (f" in {game.get('title')}." if game else "."))
+            print("  Available playlists:")
+            for n in sorted({p["name"] for p in pool}):
+                print(f"    • {n}")
+            sys.exit(1)
+        ids = {p["id"] for p in matches}
+        selected = [c for c in selected if c.get("playlistId") in ids]
+        names = sorted({p["name"] for p in matches})
+        parts.append(" / ".join(names))
+        # Spanning games is intended, but say so — it changes what you get
+        if game is None and len(matches) > 1:
+            spanned = len({p.get("gameId") for p in matches})
+            info(f"'{playlist_name}' matched {len(matches)} playlist(s) across {spanned} game(s)")
+
+    return selected, " · ".join(parts) if parts else "All clips"
 
 
 def group_by_video(clips: list) -> dict:
@@ -320,32 +388,38 @@ def main():
     parser = argparse.ArgumentParser(
         description="Download Film Room clips as individual MP4 files."
     )
-    parser.add_argument("json_file",              help="Path to filmroom-clips.json")
-    parser.add_argument("--playlist", "-p",       help="Playlist name to export (default: all clips)")
-    parser.add_argument("--output",   "-o",       help="Output folder (default: ./clips)", default="./clips")
+    parser.add_argument("json_file",        help="Path to filmroom-clips.json")
+    parser.add_argument("--game",     "-g", help="Game title to export (default: every game)")
+    parser.add_argument("--playlist", "-p", help="Playlist name to export; matches across games unless --game is given")
+    parser.add_argument("--output",   "-o", help="Output folder (default: ./clips)", default="./clips")
+    parser.add_argument("--list",     "-l", action="store_true", help="List the games and playlists, then exit")
     args = parser.parse_args()
 
     print()
     print(f"{C.BOLD}🏀 Film Room Clip Downloader{C.RESET}")
     print(f"{C.DIM}{'─' * 40}{C.RESET}")
 
-    # 1. Check deps
-    resolve_tools()
-
-    # 2. Load JSON
+    # 1. Load JSON
     if not os.path.exists(args.json_file):
         err(f"File not found: {args.json_file}")
         sys.exit(1)
-    playlists, all_clips = load_json(args.json_file)
-    info(f"Loaded {len(all_clips)} clip(s) across {len(playlists)} playlist(s)")
+    games, playlists, all_clips = load_json(args.json_file)
+    info(f"Loaded {len(all_clips)} clip(s) · {len(playlists)} playlist(s) · {len(games)} game(s)")
 
-    # 3. Filter by playlist
-    pl_id, pl_name = pick_playlist(playlists, args.playlist)
-    clips = all_clips if pl_id is None else [c for c in all_clips if c.get("playlistId") == pl_id]
+    # 2. --list only reads the export, so don't make it wait on yt-dlp/ffmpeg
+    if args.list:
+        print_library(games, playlists, all_clips)
+        sys.exit(0)
+
+    # 3. Check deps
+    resolve_tools()
+
+    # 4. Filter by game and/or playlist
+    clips, selection = select_clips(games, playlists, all_clips, args.game, args.playlist)
     if not clips:
         warn("No clips found for that selection.")
         sys.exit(0)
-    info(f"Exporting {bold(str(len(clips)))} clip(s) from {bold(pl_name)}")
+    info(f"Exporting {bold(str(len(clips)))} clip(s) from {bold(selection)}")
 
     # 4. Group by source video
     grouped = group_by_video(clips)
@@ -356,6 +430,11 @@ def main():
     info(f"Output folder: {bold(str(out_dir.resolve()))}")
 
     # 6. Process each video source
+    # A category pulled across a season yields same-named clips from different
+    # games — prefix with the game so the files stay tellable apart.
+    titles = {g["id"]: g.get("title", "") for g in games}
+    span_games = len({c.get("gameId") for c in clips if c.get("gameId")}) > 1
+
     total_ok = 0
     total_clips = sum(len(v) for v in grouped.values())
     global_idx = 0
@@ -370,7 +449,10 @@ def main():
 
             for clip in video_clips:
                 label     = clip.get("label", f"Clip {global_idx+1}")
-                filename  = f"{global_idx+1:02d}_{safe_filename(label)}.mp4"
+                prefix    = ""
+                if span_games and titles.get(clip.get("gameId")):
+                    prefix = safe_filename(titles[clip["gameId"]])[:24] + "__"
+                filename  = f"{global_idx+1:02d}_{prefix}{safe_filename(label)}.mp4"
                 out_path  = str(out_dir / filename)
 
                 success = cut_clip(source_path, clip, out_path, global_idx, total_clips)
