@@ -216,6 +216,45 @@
   .player-placeholder svg { width: 48px; height: 48px; opacity: 0.4; }
   .player-placeholder p { font-size: 13px; }
 
+  /* ── Always-on timecode ── */
+  .timecode {
+    position: absolute; top: 10px; right: 10px;
+    display: flex; align-items: baseline; gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.72);
+    border: 1px solid rgba(255,255,255,0.16);
+    font-family: var(--mono);
+    line-height: 1.2;
+    /* Clicks belong to the player underneath */
+    pointer-events: none;
+    z-index: 5;
+  }
+  .tc-now   { font-size: 15px; font-weight: 500; color: #fff; font-variant-numeric: tabular-nums; }
+  .tc-sep   { font-size: 11px; color: rgba(255,255,255,0.4); }
+  .tc-total { font-size: 11px; color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums; }
+
+  .film-progress {
+    position: relative;
+    height: 4px;
+    background: var(--bg3);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .fp-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 0;
+    background: var(--accent);
+  }
+  /* Where the selected clip sits in the whole film */
+  .fp-clip {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--info);
+    opacity: 0.55;
+  }
+
+  .timecode[hidden], .film-progress[hidden], .fp-clip[hidden] { display: none; }
+
   /* ── Playback bar ── */
   .playback-bar {
     display: flex; align-items: center; gap: 10px;
@@ -274,6 +313,9 @@
     overflow-y: auto;
     padding: 14px;
     display: flex; flex-direction: column; gap: 12px;
+    /* The dictation panel appears above the scroll position; without this,
+       scroll anchoring pushes the column down by its height. */
+    overflow-anchor: none;
   }
 
   .section-label {
@@ -654,6 +696,149 @@
     .dash-cols { grid-template-columns: 1fr; }
   }
 
+  /* ── Settings ── */
+  .modal.wide { width: 460px; max-height: 86vh; overflow-y: auto; }
+  .set-row { margin-bottom: 14px; }
+  .set-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 6px;
+  }
+  .set-help { font-size: 11px; color: var(--text3); margin-top: 5px; line-height: 1.5; }
+  .set-help.warn { color: #d9a03a; }
+  .set-help.ok { color: var(--success); }
+  .set-help.bad { color: var(--danger); }
+
+  /* ── Voice dictation ── */
+  .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+  .mic-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 9px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--sans); font-size: 11px; font-weight: 500;
+    letter-spacing: 0; text-transform: none;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .mic-btn svg { width: 12px; height: 12px; }
+  .mic-btn:hover { background: var(--bg3); color: var(--text); }
+  .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mic-btn.active {
+    background: var(--danger-bg);
+    border-color: rgba(240,82,82,0.4);
+    color: var(--danger);
+    animation: micPulse 1.9s ease-out infinite;
+  }
+  @keyframes micPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(240,82,82,0.5); }
+    70%  { box-shadow: 0 0 0 7px rgba(240,82,82,0); }
+    100% { box-shadow: 0 0 0 0 rgba(240,82,82,0); }
+  }
+
+  .dict-controls { display: flex; align-items: center; gap: 6px; }
+
+  .hotkey-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0; text-transform: none;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .hotkey-chip svg { width: 12px; height: 12px; }
+  .hotkey-chip:hover { background: var(--bg3); color: var(--text2); }
+  .hotkey-chip.capturing {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  .dict-panel {
+    margin: 8px 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg2);
+    overflow: hidden;
+  }
+  .dict-status {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; color: var(--text2);
+  }
+  .dict-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3); flex-shrink: 0;
+  }
+  .dict-panel.live .dict-dot { background: var(--danger); animation: micPulse 1.9s ease-out infinite; }
+  .dict-hint {
+    margin-left: auto; color: var(--text3); font-size: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dict-transcript {
+    padding: 9px 10px;
+    font-family: var(--mono); font-size: 11px; line-height: 1.5;
+    color: var(--text); min-height: 34px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dict-transcript .interim { color: var(--text3); font-style: italic; }
+  .dict-transcript .idle { color: var(--text3); }
+  .dict-transcript .miss { color: var(--warn, #d9a03a); }
+
+  .pending-card {
+    padding: 9px 10px;
+    border-top: 1px solid var(--border);
+    background: var(--info-bg);
+  }
+  .pending-card:first-child { border-top: none; }
+  .pending-parse { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 3px; }
+  .pending-ts { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--info); }
+  .pending-dur {
+    font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg3); color: var(--text2);
+  }
+  .pending-label { font-size: 12px; color: var(--text); }
+  .pending-heard {
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    margin-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pending-warn { font-size: 10px; color: #d9a03a; margin-bottom: 6px; }
+  .pending-btns { display: flex; gap: 6px; }
+  .pending-btns .btn { flex: 1; font-size: 11px; padding: 4px 8px; }
+  .pending-btns .btn.playing { border-color: var(--accent-border); color: var(--accent); background: var(--accent-bg); }
+
+  .pc-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .pc-row .time-input { width: 64px; padding: 3px 6px; font-size: 11px; }
+  .pc-arrow { color: var(--text3); font-size: 11px; }
+  .pending-card .pc-dur { margin-left: 2px; }
+  .pc-bump { display: flex; gap: 3px; margin-left: auto; }
+  .pc-step {
+    width: 20px; height: 20px; line-height: 1;
+    border-radius: 5px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--text2);
+    font-family: var(--mono); font-size: 12px; cursor: pointer;
+  }
+  .pc-step:hover { background: var(--bg4); color: var(--text); }
+  .pending-card .pc-label { padding: 4px 8px; font-size: 12px; margin-bottom: 6px; }
+  .pending-card .pc-playlist { padding: 4px 8px; font-size: 12px; margin-bottom: 6px; }
+
+  .dict-bulk {
+    display: flex; gap: 6px; padding: 8px 10px;
+    border-top: 1px solid var(--border); background: var(--bg3);
+  }
+  .dict-bulk .btn { flex: 1; font-size: 11px; padding: 4px 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mic-btn.active, .dict-panel.live .dict-dot { animation: none; }
+  }
+
   /* ── Scrollbars ── */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -715,6 +900,9 @@
     <!-- loadVideo() and playClipAtIdx() still read the URL from here -->
     <input type="hidden" id="yt-url" />
     <div class="topbar-divider film-only"></div>
+    <button class="icon-btn" onclick="openSettings()" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.36.43.65.79.79H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <button class="btn" onclick="exportJSON()" title="Export all clips as JSON">Export</button>
     <button class="btn" onclick="document.getElementById('import-file').click()" title="Import clips from JSON">Import</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)" />
@@ -757,6 +945,19 @@
         <p>Load a YouTube URL to begin</p>
       </div>
       <div id="player-container" style="display:none; width:100%; height:100%;"></div>
+
+      <!-- YouTube's own readout hides itself a few seconds in; this one doesn't -->
+      <div class="timecode" id="timecode" hidden>
+        <span class="tc-now" id="tc-now">0:00</span>
+        <span class="tc-sep">/</span>
+        <span class="tc-total" id="tc-total">--:--</span>
+      </div>
+    </div>
+
+    <!-- Always-on timeline, with the active clip marked on it -->
+    <div class="film-progress" id="film-progress" hidden>
+      <span class="fp-clip" id="fp-clip" hidden></span>
+      <span class="fp-fill" id="fp-fill"></span>
     </div>
 
     <!-- Playback bar -->
@@ -765,10 +966,10 @@
         <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       </button>
       <div class="clip-nav">
-        <button class="icon-btn nav-btn" onclick="prevClip()" title="Previous clip">
+        <button class="icon-btn nav-btn" onclick="prevClip()" title="Previous clip (Shift+←)">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
         </button>
-        <button class="icon-btn nav-btn" onclick="nextClip()" title="Next clip">
+        <button class="icon-btn nav-btn" onclick="nextClip()" title="Next clip (Shift+→)">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
         </button>
       </div>
@@ -793,7 +994,20 @@
     <!-- Add clip form -->
     <div class="add-clip-panel">
       <div>
-        <div class="section-label">New clip</div>
+        <div class="section-label label-row">
+          <span>New clip</span>
+          <div class="dict-controls">
+            <button class="hotkey-chip" id="hotkey-chip" onclick="beginHotkeyCapture()" title="Dictation hotkey — click to change">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+              <span id="hotkey-label">Right ⌥</span>
+            </button>
+            <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Dictate a clip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4M8 23h8"/></svg>
+              <span id="mic-btn-text">Dictate</span>
+            </button>
+          </div>
+        </div>
+        <div class="dict-panel" id="dictation" style="display:none"></div>
 
         <div class="field-row">
           <label>Start</label>
@@ -866,6 +1080,59 @@
   </div>
 </div>
 
+<!-- Settings -->
+<div class="modal-overlay hidden" id="settings-modal">
+  <div class="modal wide">
+    <h3>Settings</h3>
+
+    <div class="set-row">
+      <div class="set-label">Dictation parsing</div>
+      <select class="pl-select" id="set-parser" onchange="renderSettings()">
+        <option value="builtin">Built-in — offline, no account</option>
+        <option value="ai">AI endpoint — send the transcript out to be parsed</option>
+      </select>
+      <div class="set-help" id="set-parser-help"></div>
+    </div>
+
+    <div id="set-ai-fields">
+      <div class="set-row">
+        <div class="set-label">Provider</div>
+        <select class="pl-select" id="set-provider" onchange="applyProviderDefaults()">
+          <option value="anthropic">Anthropic (Messages API)</option>
+          <option value="openai">OpenAI-compatible (chat/completions)</option>
+        </select>
+        <div class="set-help">OpenAI-compatible also covers OpenRouter, Groq, LM Studio, llama.cpp and Ollama.</div>
+      </div>
+      <div class="set-row">
+        <div class="set-label">Endpoint</div>
+        <input class="text-input" id="set-endpoint" spellcheck="false" placeholder="https://…" />
+      </div>
+      <div class="set-row">
+        <div class="set-label">Model</div>
+        <input class="text-input" id="set-model" spellcheck="false" placeholder="model id" />
+      </div>
+      <div class="set-row">
+        <div class="set-label">API key</div>
+        <input class="text-input" id="set-key" type="password" spellcheck="false"
+               autocomplete="off" placeholder="sk-…" />
+        <div class="set-help warn">
+          Stored in this browser's localStorage in plain text and sent straight from the page.
+          Use a key scoped to this, and revoke it if you share the machine.
+        </div>
+      </div>
+      <div class="set-row">
+        <button class="btn" onclick="testAiEndpoint()" id="set-test-btn">Test connection</button>
+        <span class="set-help" id="set-test-result"></span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeSettings()">Cancel</button>
+      <button class="btn accent" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Move clip to another playlist -->
 <div class="modal-overlay hidden" id="move-modal">
   <div class="modal">
@@ -922,6 +1189,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updatePlaylistSelect();
   updateBufDisplay();
   renderGameSwitcher();
+  renderDictation();   // reflects browser support on the mic button straight away
   // The dashboard is home. The film itself loads lazily when a game is opened,
   // so returning to a big library doesn't pull down a video you didn't ask for.
   setView('dashboard');
@@ -1121,6 +1389,7 @@ function createPlayer(vid) {
     events: {
       onReady: () => {
         videoLoaded = true;
+        startTimeTicker();
         tryAutoTitle(vid);
         document.getElementById('play-btn').disabled = activeClipIdx < 0;
         if (pendingSeek) {
@@ -1182,6 +1451,79 @@ function startWatcher() {
   }, playAllMode ? 150 : 500); // tighter polling during play-all for snappy transitions
 }
 function stopWatcher() { if (watchInterval) { clearInterval(watchInterval); watchInterval = null; } }
+
+/* Arrow keys scrub the film itself. Stepping between clips is Shift+Arrow, or
+ * the buttons in the playback bar. */
+const SEEK_STEP = 10;
+let seekTarget = null, seekTargetAt = 0;
+function nudge(seconds) {
+  if (!player || !videoLoaded) return;
+  let at = 0, dur = 0;
+  try { at = player.getCurrentTime(); dur = player.getDuration() || 0; } catch (e) { return; }
+
+  // seekTo is asynchronous, so tapping the key three times would otherwise read
+  // the same stale position three times and move 10s in total. Accumulate from
+  // the last target while the presses are still coming.
+  const now = Date.now();
+  const base = (seekTarget !== null && now - seekTargetAt < 900) ? seekTarget : at;
+  let target = base + seconds;
+  if (target < 0) target = 0;
+  if (dur && target > dur - 0.5) target = Math.max(0, dur - 0.5);
+
+  // Landing outside the active clip would have the watcher pause you a tick
+  // later, which reads as the video fighting the keyboard.
+  const clip = activeClipIdx >= 0 ? visibleClips()[activeClipIdx] : null;
+  if (clip && (target < clip.effStart || target > clip.effEnd)) setFreeMode(true);
+
+  seekTarget = target;
+  seekTargetAt = now;
+  try { player.seekTo(target, true); } catch (e) {}
+  updateTimecode();
+}
+
+/*
+ * The clip watcher only runs while playing, and stops on pause — fine for
+ * enforcing clip ends, useless for a readout. This ticker is separate and
+ * always on, so the time stays right while paused, scrubbing, or buffering.
+ */
+let timeTicker = null;
+function startTimeTicker() {
+  if (timeTicker) return;                         // one is enough across film swaps
+  // No hidden-tab guard: browsers already throttle background timers, and
+  // skipping ticks only risks showing a stale time the moment you look back.
+  timeTicker = setInterval(updateTimecode, 100);
+  updateTimecode();
+}
+
+function updateTimecode() {
+  const badge = document.getElementById('timecode');
+  const bar   = document.getElementById('film-progress');
+  if (!badge || !bar) return;
+
+  if (!player || !videoLoaded || !player.getCurrentTime) {
+    badge.hidden = true; bar.hidden = true;
+    return;
+  }
+  let cur = 0, dur = 0;
+  try { cur = player.getCurrentTime() || 0; dur = player.getDuration() || 0; }
+  catch (e) { return; }                           // player torn down mid-tick
+
+  badge.hidden = false; bar.hidden = false;
+  document.getElementById('tc-now').textContent   = fmt(cur);
+  document.getElementById('tc-total').textContent = dur ? fmt(dur) : '--:--';
+  document.getElementById('fp-fill').style.width  = (dur ? Math.min(100, (cur / dur) * 100) : 0) + '%';
+
+  // Show where the selected clip sits, but only on the film it belongs to
+  const clip = activeClipIdx >= 0 ? visibleClips()[activeClipIdx] : null;
+  const marker = document.getElementById('fp-clip');
+  if (clip && dur && (!clip.videoId || clip.videoId === currentVideoId)) {
+    marker.hidden = false;
+    marker.style.left  = Math.max(0, (clip.effStart / dur) * 100) + '%';
+    marker.style.width = Math.max(0.3, ((clip.effEnd - clip.effStart) / dur) * 100) + '%';
+  } else {
+    marker.hidden = true;
+  }
+}
 function setPlayIcon(playing) {
   document.getElementById('play-icon').innerHTML = playing
     ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
@@ -1527,8 +1869,10 @@ function updateLoop() {
   loopEnabled = document.getElementById('loop-toggle').checked;
   document.getElementById('loop-label').classList.toggle('on', loopEnabled);
 }
-function toggleFreeMode() {
-  freeMode = !freeMode;
+function toggleFreeMode() { setFreeMode(!freeMode); }
+
+function setFreeMode(on) {
+  freeMode = on;
   const btn = document.getElementById('free-btn');
   btn.classList.toggle('active', freeMode);
   btn.title = freeMode ? 'Free scrub active — clip enforcement off' : 'Release clip enforcement and scrub freely';
@@ -1967,6 +2311,7 @@ function setView(v) {
     // The player is only hidden, not destroyed — stop it so audio doesn't trail
     stopWatcher();
     playAllMode = false; updatePlayAllBtn();
+    if (micOn) stopDictation();   // parses what was said rather than dropping it
     if (player && player.pauseVideo) { try { player.pauseVideo(); } catch(e) {} }
     renderDashboard();
   }
@@ -2227,14 +2572,1088 @@ function renderDashboard() {
     </div>`;
 }
 
-/* keyboard shortcuts */
+/* ── Voice dictation ─────────────────────────────────────────────────────── */
+/*
+ * Hold the hotkey, call out as many clips as you like in one go, release. The
+ * whole session is transcribed first and parsed at the end, rather than guessed
+ * at at every pause — speech engines break on breath, not on meaning, so a clip
+ * split across two segments would otherwise be lost.
+ *
+ * Nothing is saved until confirmed, and confirming borrows the manual form so
+ * buffers, validation and playlist fallback stay identical by construction.
+ */
+/*
+ * The Fn / 🌐 key cannot be used here. macOS consumes it in the keyboard layer,
+ * so it never reaches the page — no keydown, and getModifierState('Fn') stays
+ * false. Native apps bind it through low-level event taps, which a web page has
+ * no access to. Right ⌥ is the closest stand-in: held with the right hand,
+ * types nothing on its own. Anyone set on Fn can map it to F13 with Karabiner
+ * and bind that instead, which is why this is configurable at all.
+ */
+const DEFAULT_HOTKEY = 'AltRight';
+const HOLD_MS      = 250;   // longer than this and it was a hold, not a tap
+const DOUBLE_TAP_MS = 400;  // second tap inside this window locks the mic on
+
+const MODIFIER_CODES = new Set([
+  'AltLeft','AltRight','MetaLeft','MetaRight','ControlLeft','ControlRight',
+  'ShiftLeft','ShiftRight','CapsLock',
+]);
+// Keys the film room already owns, or that would trap the user
+const HOTKEY_BLOCKED = new Set(['Space','ArrowLeft','ArrowRight','Escape','Enter','NumpadEnter','Tab']);
+
+const IS_MAC = /Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent || '');
+const HOTKEY_NAMES = IS_MAC
+  ? { AltLeft:'Left ⌥', AltRight:'Right ⌥', MetaLeft:'Left ⌘', MetaRight:'Right ⌘',
+      ControlLeft:'Left ⌃', ControlRight:'Right ⌃', ShiftLeft:'Left ⇧', ShiftRight:'Right ⇧' }
+  : { AltLeft:'Left Alt', AltRight:'Right Alt', MetaLeft:'Left Win', MetaRight:'Right Win',
+      ControlLeft:'Left Ctrl', ControlRight:'Right Ctrl', ShiftLeft:'Left Shift', ShiftRight:'Right Shift' };
+
+function hotkeyLabel(code) {
+  if (HOTKEY_NAMES[code]) return HOTKEY_NAMES[code];
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^F\d{1,2}$/.test(code)) return code;
+  if (code === 'CapsLock') return 'Caps Lock';
+  if (code === 'Backquote') return '`';
+  return code;
+}
+
+let dictateHotkey = DEFAULT_HOTKEY;
+try {
+  const saved = localStorage.getItem('filmroom_hotkey');
+  if (saved) dictateHotkey = saved;
+} catch (e) {}
+let capturingHotkey = false;
+
+const DEFAULT_DURATION = { secs: 5, name: 'short' };
+const DURATION_WORDS = [
+  { re: /\b(?:full\s+possession|shot\s+clock|possession)\b/i, secs: 24, name: 'possession' },
+  { re: /\bmedium\b/i, secs: 10, name: 'medium' },
+  { re: /\bshort\b/i,  secs:  5, name: 'short'  },
+  { re: /\blong\b/i,   secs: 15, name: 'long'   },
+];
+
+// Chrome usually returns digits, but not always for a bare "fifteen thirty four"
+const NUM_WORDS = {
+  zero:0, oh:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8,
+  nine:9, ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15,
+  sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30,
+  forty:40, fifty:50,
+};
+const LEAD_WORD = /^(?:at|minute|minutes|min|mark|time|timestamp|clip)$/i;
+const LEAD_SRC  = '(?:\\b(?:at|minute|minutes|min|mark|time|timestamp|clip)\\b\\s+)?';
+
+let recognition = null;
+let micOn = false;
+let micMode = 'off';        // 'off' | 'hold' | 'pending-double' | 'locked'
+let sessionText = '';       // every final segment of this session, joined
+let liveTranscript = '';    // the interim tail, not yet final
+let lastMiss = '';
+let pendingClips = [];
+let micRestartTimer = null;
+let tapTimer = null;
+let keyDownAt = 0;
+let recognizing = false;    // is the engine actually running right now
+let finishTimer = null;
+
+function micUnavailableReason() {
+  if (!(window.SpeechRecognition || window.webkitSpeechRecognition))
+    return 'This browser has no Web Speech API — try Chrome or Edge.';
+  if (!window.isSecureContext)
+    return 'Dictation needs a secure origin — run ./serve.sh and use http://localhost:8777.';
+  return null;
+}
+
+/* "fifteen thirty four" → "15 34". Only converts where a timestamp could
+ * actually begin — the start, or just after a word like "minute" — because a
+ * basketball label is full of number words ("long two", "and one") that must
+ * survive untouched. */
+function wordsToDigits(text) {
+  const toks = String(text).split(/\s+/);
+  const out = [];
+  let armed = true;
+  for (let i = 0; i < toks.length; i++) {
+    const w = toks[i].toLowerCase().replace(/[^a-z]/g, '');
+    if (LEAD_WORD.test(w)) { out.push(toks[i]); armed = true; continue; }
+    if (armed && /^\d+:?\d*$/.test(toks[i])) { out.push(toks[i]); continue; }
+    if (armed && Object.prototype.hasOwnProperty.call(NUM_WORDS, w)) {
+      let v = NUM_WORDS[w];
+      if (v >= 20 && v % 10 === 0) {           // "thirty" + "four" → 34
+        const nxt = (toks[i + 1] || '').toLowerCase().replace(/[^a-z]/g, '');
+        const nv = NUM_WORDS[nxt];
+        if (nv >= 1 && nv <= 9) { v += nv; i++; }
+      }
+      out.push(String(v));
+      continue;                                // stay armed across the run
+    }
+    armed = false;
+    out.push(toks[i]);
+  }
+  return out.join(' ');
+}
+
+/* Every timestamp in the transcript, in order. Each one opens a new clip, which
+ * is what lets a single held-down session carry a dozen of them. */
+function findTimestamps(text) {
+  const forms = [
+    { re: new RegExp(LEAD_SRC + '(\\d{1,2}):(\\d{1,2}):(\\d{1,2})(?!\\d)', 'iy'), parts: 3 },
+    { re: new RegExp(LEAD_SRC + '(\\d{1,2}):(\\d{1,2})(?!\\d)',            'iy'), parts: 2 },
+    // Said out loud, units settle it: "12 seconds" is 0:12, not 12:00
+    { re: new RegExp(LEAD_SRC + '(\\d{1,3})\\s*(?:minutes?|mins?)\\b\\s*(?:and\\s+)?(\\d{1,2})\\s*(?:seconds?|secs?)?\\b', 'iy'), parts: 5 },
+    { re: new RegExp(LEAD_SRC + '(\\d{1,3})\\s*(?:minutes?|mins?)\\b', 'iy'), parts: 6 },
+    { re: new RegExp(LEAD_SRC + '(\\d{1,3})\\s*(?:seconds?|secs?)\\b',  'iy'), parts: 7 },
+    { re: new RegExp(LEAD_SRC + '(\\d{1,2})\\s+(\\d{1,2})(?!\\d)',         'iy'), parts: 2 },
+    // Chrome often renders a spoken "fifteen thirty four" as 1534
+    { re: new RegExp(LEAD_SRC + '(\\d{3,4})(?!\\d)', 'iy'), parts: 4 },
+    { re: new RegExp('(\\b(?:at|minute|minutes|min|mark|time|timestamp|clip)\\b\\s+)(\\d{1,3})(?!\\d)', 'iy'), parts: 1 },
+    { re: new RegExp('^(\\d{1,3})(?!\\d)', 'iy'), parts: 1, onlyAtStart: true },
+  ];
+  const out = [];
+  for (let i = 0; i < text.length; i++) {
+    if (i > 0 && !/\s/.test(text[i - 1])) continue;      // word starts only
+    // "for 20 seconds" states a clip's length, not where the next one starts
+    if (i > 0 && /\bfor\s+$/i.test(text.slice(Math.max(0, i - 8), i))) continue;
+    let hit = null, spoiled = null;
+    for (const f of forms) {
+      if (f.onlyAtStart && i !== 0) continue;
+      f.re.lastIndex = i;
+      const m = f.re.exec(text);
+      if (!m) continue;
+      // Groups sit after the lead capture on the announced-bare form
+      const nums = m.slice(1).filter(x => x !== undefined && /^\d+$/.test(x)).map(Number);
+      let secs;
+      if (f.parts === 3) {
+        if (nums[1] > 59 || nums[2] > 59) { spoiled = m; break; }
+        secs = nums[0] * 3600 + nums[1] * 60 + nums[2];
+      } else if (f.parts === 2) {
+        if (nums[1] > 59) { spoiled = m; break; }         // "15 74" isn't mm ss
+        secs = nums[0] * 60 + nums[1];
+      } else if (f.parts === 5) {
+        if (nums[1] > 59) { spoiled = m; break; }
+        secs = nums[0] * 60 + nums[1];                    // "1 minute 30"
+      } else if (f.parts === 6) {
+        secs = nums[0] * 60;                              // "12 minutes"
+      } else if (f.parts === 7) {
+        secs = nums[0];                                   // "12 seconds"
+      } else if (f.parts === 4) {
+        const digits = String(nums[0]);                   // 1534 → 15:34, 534 → 5:34
+        const ss = +digits.slice(-2), mm = +digits.slice(0, -2);
+        if (ss > 59) { spoiled = m; break; }
+        secs = mm * 60 + ss;
+      } else {
+        secs = nums[0] * 60;                              // announced minutes
+      }
+      hit = { index: i, length: m[0].length, secs };
+      break;
+    }
+    // Seconds out of range means it was misheard. Skip the whole thing rather
+    // than salvage the minutes — "15 74" is not a confident 15:00.
+    if (!hit && spoiled) { i += spoiled[0].length - 1; continue; }
+    if (hit) { out.push(hit); i = hit.index + hit.length - 1; }
+  }
+  return out;
+}
+
+/* Turn one timestamp plus the words that follow it into a clip. */
+function parseSegment(secs, tail, raw) {
+  let rest = tail.replace(/\s+/g, ' ').trim();
+
+  // An explicit length beats the keywords, and stops "for 20 seconds" from
+  // being mistaken for the label
+  const explicit = rest.match(/\bfor\s+(\d{1,3})\s*(?:seconds?|secs?)\b/i);
+  if (explicit) {
+    const secsLong = Math.max(1, +explicit[1]);
+    rest = (rest.slice(0, explicit.index) + ' ' + rest.slice(explicit.index + explicit[0].length))
+      .replace(/\s+/g, ' ').trim();
+    return finishSegment(secs, rest, raw, { secs: secsLong, name: 'custom' });
+  }
+
+  // Earliest duration word wins, so a label may still contain one later on
+  let duration = DEFAULT_DURATION, at = -1;
+  for (const d of DURATION_WORDS) {
+    const m = rest.match(d.re);
+    if (m && (at === -1 || m.index < at)) { at = m.index; duration = d; }
+  }
+  if (at !== -1) {
+    const m = rest.match(duration.re);
+    rest = (rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length))
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  return finishSegment(secs, rest, raw, duration);
+}
+
+function finishSegment(secs, rest, raw, duration) {
+  const game = filmGame();
+  const found = extractPlaylist(rest, game ? gamePlaylists(game.id) : []);
+  // No leading-filler strip on purpose: "and one" is a shot, not a stray connector
+  let label = found.rest.trim();
+  if (label) label = label.charAt(0).toUpperCase() + label.slice(1);
+  else label = 'Clip ' + fmt(secs);
+
+  // Flag a timestamp past the end of the film rather than refusing it
+  let warning = '';
+  try {
+    const dur = player && player.getDuration ? player.getDuration() : 0;
+    if (dur && secs >= dur) warning = 'That is past the end of this film (' + fmt(dur) + ')';
+  } catch (e) {}
+
+  return {
+    ok: true, id: uid(), raw: raw.trim(),
+    start: secs,
+    end: secs + duration.secs,
+    durationName: duration.name,
+    durationSecs: duration.secs,
+    label,
+    playlistId: found.pl ? found.pl.id : null,
+    playlistName: found.pl ? found.pl.name : null,
+    warning,
+  };
+}
+
+/* Match a playlist by name, either after a marker word ("to offence") or
+ * sitting at the front of what's left. Longest name first so "Offence rebounds"
+ * beats "Offence". */
+function extractPlaylist(text, pls) {
+  const sorted = [...pls].sort((a, b) => b.name.length - a.name.length);
+  for (const pl of sorted) {
+    const clean = pl.name.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) continue;
+    const pat = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    let m = text.match(new RegExp('\\b(?:playlist|to|into|in|under|for)\\s+' + pat + '\\b', 'i'));
+    if (m) {
+      const rest = (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length))
+        .replace(/\s+/g, ' ').trim();
+      return { pl, rest };
+    }
+    m = text.match(new RegExp('^' + pat + '\\b', 'i'));
+    if (m) return { pl, rest: text.slice(m[0].length).trim() };
+  }
+  return { pl: null, rest: text };
+}
+
+/* A whole dictation session → every clip in it. */
+function parseDictationBatch(raw) {
+  const norm = String(raw)
+    .replace(/[^\w:'\s]/g, ' ')     // keep colons for 15:34 and apostrophes for labels
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!norm) return { clips: [], reason: 'Nothing heard', raw };
+
+  // Digits as spoken first, so labels keep their number words. Only if that
+  // finds nothing do we translate spoken numbers into digits.
+  let work = norm;
+  let stamps = findTimestamps(work);
+  if (!stamps.length) {
+    work = wordsToDigits(norm);
+    stamps = findTimestamps(work);
+  }
+  if (!stamps.length) return { clips: [], reason: 'No timestamp in that', raw };
+
+  const clips = stamps.map((st, k) => {
+    const from = st.index + st.length;
+    const to = k + 1 < stamps.length ? stamps[k + 1].index : work.length;
+    return parseSegment(st.secs, work.slice(from, to), work.slice(st.index, to));
+  });
+  return { clips, reason: '', raw };
+}
+
+/* Single-utterance convenience used by the tests. */
+function parseDictation(raw) {
+  const r = parseDictationBatch(raw);
+  return r.clips.length ? r.clips[0] : { ok: false, reason: r.reason, raw };
+}
+
+/* ── Recognition lifecycle ───────────────────────────────────────────────── */
+function startDictation() {
+  const why = micUnavailableReason();
+  if (why) { toast(why); return false; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!recognition) {
+    recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || 'en-US';
+
+    recognition.onstart = () => {
+      recognizing = true;
+      // Released while the permission prompt was up — don't strand a live mic
+      if (!micOn) { try { recognition.stop(); } catch (e) {} }
+    };
+
+    recognition.onresult = (ev) => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const r = ev.results[i];
+        // Bank the final text; parsing waits until the whole session ends
+        if (r.isFinal) sessionText += (sessionText ? ' ' : '') + r[0].transcript.trim();
+        else interim += r[0].transcript;
+      }
+      liveTranscript = interim;
+      renderDictation();
+    };
+
+    recognition.onerror = (ev) => {
+      if (ev.error === 'no-speech' || ev.error === 'aborted') return;  // onend handles it
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+        stopDictation();
+        toast('Microphone blocked — allow access in the browser, then try again');
+        return;
+      }
+      toast('Dictation error: ' + ev.error);
+    };
+
+    // Chrome ends the session on silence. While the mic is still on that's just
+    // a hiccup to restart through; once it's off, this is where the session's
+    // transcript is finally parsed — trailing results land before onend.
+    recognition.onend = () => {
+      recognizing = false;
+      if (micOn) {
+        clearTimeout(micRestartTimer);
+        micRestartTimer = setTimeout(() => {
+          if (!micOn) return;
+          try { recognition.start(); } catch (e) {}
+        }, 250);
+        return;
+      }
+      clearTimeout(finishTimer);
+      finishSession();
+    };
+  }
+
+  micOn = true;
+  sessionText = '';
+  liveTranscript = '';
+  lastMiss = '';
+  try { recognition.start(); } catch (e) {}   // already running is harmless
+  renderDictation();
+  revealDictation();
+  return true;
+}
+
+function stopDictation() {
+  if (!micOn) { setMicMode('off'); return; }
+  micOn = false;
+  clearTimeout(micRestartTimer);
+  clearTimeout(tapTimer);
+  setMicMode('off');
+  /*
+   * Chrome ends a session by itself after a silence, and we restart it 250ms
+   * later. Release the key inside that gap and stop() has nothing to stop: it
+   * is a silent no-op that never fires onend, so the whole transcript was being
+   * discarded with no error at all. Parse directly when the engine is idle, and
+   * keep a fallback timer for the case where onend simply never arrives.
+   */
+  if (recognition && recognizing) {
+    try { recognition.stop(); } catch (e) {}
+    clearTimeout(finishTimer);
+    finishTimer = setTimeout(finishSession, 600);   // harmless if onend beat us
+  } else {
+    finishSession();
+  }
+  renderDictation();
+}
+
+/* Parse everything that was said, once, at the end of the session. */
+async function finishSession() {
+  const full = (sessionText + ' ' + liveTranscript).replace(/\s+/g, ' ').trim();
+  sessionText = '';
+  liveTranscript = '';
+  if (!full) { renderDictation(); return; }
+
+  if (aiConfigured()) {
+    aiParsing = true;
+    renderDictation();
+    revealDictation();
+    try {
+      const clips = await callParser(full);
+      aiParsing = false;
+      if (clips.length) { pendingClips = pendingClips.concat(clips); lastMiss = ''; }
+      else lastMiss = full;
+      renderDictation();
+      revealDictation();
+      return;
+    } catch (err) {
+      // Never lose a session to a failed call — fall through to the local parser
+      aiParsing = false;
+      toast('AI parsing failed (' + String(err.message || err).slice(0, 60) + ') — used the built-in parser');
+    }
+  }
+
+  const out = parseDictationBatch(full);
+  if (out.clips.length) {
+    pendingClips = pendingClips.concat(out.clips);
+    lastMiss = '';
+  } else {
+    lastMiss = full;
+  }
+  renderDictation();
+  revealDictation();
+}
+
+function setMicMode(m) { micMode = m; }
+
+/* The add-clip column scrolls, so the panel can easily be off-screen when a
+ * session starts or its results land. Bring it into view rather than leaving
+ * the transcript and the confirm cards somewhere the user isn't looking. */
+function revealDictation() {
+  const panel = document.getElementById('dictation');
+  const scroller = document.querySelector('.add-clip-panel');
+  if (!panel || !scroller || panel.style.display === 'none') return;
+  // scrollIntoView would happily scroll further down to fit a tall panel. All
+  // that's wanted is the top of it — status and transcript — back on screen.
+  // Measure after layout has settled, or the panel's own height isn't in yet.
+  // Plain assignment rather than smooth scrolling: smooth is silently ignored
+  // in some engines, and a panel that didn't move is worse than one that jumps.
+  requestAnimationFrame(() => {
+    const delta = panel.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    if (delta >= 0) return;
+    scroller.scrollTop = Math.max(0, scroller.scrollTop + delta - 8);
+  });
+}
+
+/* Button click is the hands-free path, same as a double tap. */
+function toggleMic() {
+  if (micOn) { stopDictation(); return; }
+  if (startDictation()) setMicMode('locked');
+}
+
+/* ── Settings ────────────────────────────────────────────────────────────── */
+/*
+ * Capture always stays local (Web Speech). What is optional is the *parsing*:
+ * the built-in regex is fast, private and free, but brittle on messy speech.
+ * Pointing it at a model instead is the "context layer" idea — it gets the
+ * transcript plus the game's playlist names and hands back JSON.
+ */
+const PROVIDER_DEFAULTS = {
+  anthropic: { endpoint: 'https://api.anthropic.com/v1/messages',      model: 'claude-haiku-4-5-20251001' },
+  openai:    { endpoint: 'https://api.openai.com/v1/chat/completions', model: '' },
+};
+
+let settings = {
+  parser:   'builtin',
+  provider: 'anthropic',
+  endpoint: PROVIDER_DEFAULTS.anthropic.endpoint,
+  model:    PROVIDER_DEFAULTS.anthropic.model,
+  apiKey:   '',
+};
+try {
+  const raw = localStorage.getItem('filmroom_settings');
+  if (raw) settings = Object.assign(settings, JSON.parse(raw) || {});
+} catch (e) {}
+
+let aiParsing = false;
+
+function aiConfigured() {
+  return settings.parser === 'ai' && !!settings.endpoint && !!settings.apiKey;
+}
+
+function openSettings() {
+  document.getElementById('set-parser').value   = settings.parser;
+  document.getElementById('set-provider').value = settings.provider;
+  document.getElementById('set-endpoint').value = settings.endpoint;
+  document.getElementById('set-model').value    = settings.model;
+  document.getElementById('set-key').value      = settings.apiKey;
+  document.getElementById('set-test-result').textContent = '';
+  document.getElementById('settings-modal').classList.remove('hidden');
+  renderSettings();
+}
+function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+function renderSettings() {
+  const mode = document.getElementById('set-parser').value;
+  document.getElementById('set-ai-fields').style.display = mode === 'ai' ? 'block' : 'none';
+  document.getElementById('set-parser-help').textContent = mode === 'ai'
+    ? 'Speech still runs in this browser; only the finished transcript is sent for parsing. Falls back to the built-in parser if the call fails.'
+    : 'Everything stays on this machine. Handles the spoken format well; long rambling notes less so.';
+}
+
+function applyProviderDefaults() {
+  const prov = document.getElementById('set-provider').value;
+  const d = PROVIDER_DEFAULTS[prov];
+  if (!d) return;
+  document.getElementById('set-endpoint').value = d.endpoint;
+  document.getElementById('set-model').value    = d.model;
+}
+
+function saveSettings() {
+  settings = {
+    parser:   document.getElementById('set-parser').value,
+    provider: document.getElementById('set-provider').value,
+    endpoint: document.getElementById('set-endpoint').value.trim(),
+    model:    document.getElementById('set-model').value.trim(),
+    apiKey:   document.getElementById('set-key').value.trim(),
+  };
+  if (settings.parser === 'ai' && !aiConfigured()) {
+    toast('An endpoint and API key are needed for AI parsing');
+    return;
+  }
+  try { localStorage.setItem('filmroom_settings', JSON.stringify(settings)); } catch (e) {}
+  closeSettings();
+  renderDictation();
+  toast('Settings saved');
+}
+
+async function testAiEndpoint() {
+  const out = document.getElementById('set-test-result');
+  const btn = document.getElementById('set-test-btn');
+  const probe = {
+    parser: 'ai',
+    provider: document.getElementById('set-provider').value,
+    endpoint: document.getElementById('set-endpoint').value.trim(),
+    model:    document.getElementById('set-model').value.trim(),
+    apiKey:   document.getElementById('set-key').value.trim(),
+  };
+  if (!probe.endpoint || !probe.apiKey) { out.className = 'set-help bad'; out.textContent = 'Endpoint and key first.'; return; }
+  btn.disabled = true;
+  out.className = 'set-help'; out.textContent = 'Testing…';
+  try {
+    const clips = await callParser('15:34 long pick and roll', probe);
+    out.className = 'set-help ok';
+    out.textContent = 'Working — parsed ' + clips.length + ' clip' + (clips.length === 1 ? '' : 's') + '.';
+  } catch (err) {
+    out.className = 'set-help bad';
+    out.textContent = String(err.message || err).slice(0, 160);
+  }
+  btn.disabled = false;
+}
+
+/* ── AI parsing ──────────────────────────────────────────────────────────── */
+function buildParserPrompt(transcript) {
+  const game = filmGame();
+  const names = game ? gamePlaylists(game.id).map(pl => pl.name) : [];
+  let dur = 0;
+  try { dur = player && player.getDuration ? player.getDuration() : 0; } catch (e) {}
+  return [
+    'You turn a basketball coach\'s spoken clip notes into JSON.',
+    '',
+    'Each clip starts with a timestamp on the film, then optionally a length word,',
+    'a playlist, and a label. One utterance may contain several clips.',
+    '',
+    'Spoken units are decisive: "12 seconds" is 12 seconds in (0:12), NOT 12:00.',
+    '"12 minutes" is 12:00. "1 minute 30" is 1:30. "15:34" is 15 minutes 34 seconds.',
+    'A bare number with no unit ("minute 15", "15") means minutes.',
+    '',
+    'Lengths: short=5s, medium=10s, long=15s, possession=24s. Default to short.',
+    'An explicit length wins: "for 20 seconds" means a 20-second clip.',
+    dur ? ('Film length: ' + fmt(dur) + ' (' + Math.round(dur) + ' seconds).') : '',
+    names.length ? ('Playlists available: ' + names.join(', ') + '.') : 'No playlists available.',
+    '',
+    'Reply with JSON only, no prose or code fences:',
+    '{"clips":[{"seconds":934,"duration":"long","label":"Pick and roll","playlist":"Offence"}]}',
+    '',
+    '- seconds: integer, where the clip starts in the film',
+    '- duration: exactly one of short, medium, long, possession',
+    '- seconds_long: optional integer, only when an explicit length was spoken',
+    '- label: what was described; "" when nothing was said beyond the timestamp',
+    '- playlist: exactly one of the listed playlists, or null',
+    '- keep basketball wording intact ("long two", "and one" are labels, not lengths)',
+    '- if no timestamp was spoken, return {"clips":[]}',
+    '',
+    'Transcript:',
+    transcript,
+  ].filter(Boolean).join('\n');
+}
+
+function extractJson(text) {
+  const t = String(text).replace(/^\s*```(?:json)?/i, '').replace(/```\s*$/, '').trim();
+  try { return JSON.parse(t); } catch (e) {}
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
+  throw new Error('Endpoint did not return JSON');
+}
+
+async function callParser(transcript, cfg) {
+  cfg = cfg || settings;
+  const prompt = buildParserPrompt(transcript);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+
+  let url = cfg.endpoint, headers = { 'Content-Type': 'application/json' }, body;
+  if (cfg.provider === 'anthropic') {
+    headers['x-api-key'] = cfg.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    // Without this header the browser call is refused outright
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    body = { model: cfg.model, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] };
+  } else {
+    headers['Authorization'] = 'Bearer ' + cfg.apiKey;
+    body = { model: cfg.model, temperature: 0, messages: [{ role: 'user', content: prompt }] };
+  }
+
+  let resp;
+  try {
+    resp = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    throw new Error(err.name === 'AbortError' ? 'Timed out after 20s' : 'Could not reach the endpoint (network or CORS)');
+  }
+  clearTimeout(timer);
+
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 200); } catch (e) {}
+    throw new Error('HTTP ' + resp.status + (detail ? ' — ' + detail : ''));
+  }
+
+  const data = await resp.json();
+  const text = cfg.provider === 'anthropic'
+    ? (data.content || []).map(c => c.text || '').join('')
+    : (((data.choices || [])[0] || {}).message || {}).content || '';
+  const parsed = extractJson(text);
+  return toPendingClips(parsed && parsed.clips);
+}
+
+/* Model output → the same shape the built-in parser produces, so the confirm
+ * flow downstream cannot tell the difference. */
+function toPendingClips(raw) {
+  if (!Array.isArray(raw)) return [];
+  const game = filmGame();
+  const pls = game ? gamePlaylists(game.id) : [];
+  const byName = {};
+  DURATION_WORDS.forEach(d => { byName[d.name] = d; });
+
+  let filmLen = 0;
+  try { filmLen = player && player.getDuration ? player.getDuration() : 0; } catch (e) {}
+
+  return raw.map(item => {
+    const secs = Math.max(0, Math.round(Number(item && item.seconds)));
+    if (!isFinite(secs)) return null;
+    let d = byName[String(item.duration || '').toLowerCase()] || DEFAULT_DURATION;
+    const explicit = Math.round(Number(item.seconds_long));
+    if (isFinite(explicit) && explicit > 0) d = { secs: explicit, name: 'custom' };
+    let label = String(item.label || '').trim();
+    if (label) label = label.charAt(0).toUpperCase() + label.slice(1);
+    else label = 'Clip ' + fmt(secs);
+    const want = String(item.playlist == null ? '' : item.playlist).toLowerCase();
+    const pl = pls.find(x => x.name.toLowerCase() === want) || null;
+    return {
+      ok: true, id: uid(), raw: '(AI) ' + label,
+      start: secs, end: secs + d.secs,
+      durationName: d.name, durationSecs: d.secs,
+      label,
+      playlistId: pl ? pl.id : null,
+      playlistName: pl ? pl.name : null,
+      warning: filmLen && secs >= filmLen ? 'That is past the end of this film (' + fmt(filmLen) + ')' : '',
+    };
+  }).filter(Boolean);
+}
+
+/* ── Rebinding the hotkey ────────────────────────────────────────────────── */
+function beginHotkeyCapture() {
+  if (capturingHotkey) { cancelHotkeyCapture(); return; }
+  if (micOn) stopDictation();
+  capturingHotkey = true;
+  renderDictation();
+}
+function cancelHotkeyCapture() {
+  capturingHotkey = false;
+  renderDictation();
+}
+function setHotkey(code) {
+  dictateHotkey = code;
+  try { localStorage.setItem('filmroom_hotkey', code); } catch (e) {}
+  capturingHotkey = false;
+  renderDictation();
+  toast('Dictation hotkey set to ' + hotkeyLabel(code));
+}
+
+/* Runs on capture so it wins before every other shortcut on the page. */
 document.addEventListener('keydown', (e) => {
-  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-  if (e.key === 'Escape') { closeGameMenu(); closeTeamMenu(); closeRenameModal(); closeMoveModal(); return; }
+  if (!capturingHotkey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.code === 'Escape') { cancelHotkeyCapture(); return; }
+  if (!e.code) return;
+  if (HOTKEY_BLOCKED.has(e.code)) {
+    toast(hotkeyLabel(e.code) + ' is already used by the film room — pick another');
+    return;
+  }
+  setHotkey(e.code);
+}, true);
+
+/* ── Hotkey: hold to talk, double-tap to lock ────────────────────────────── */
+function dictateKeyDown(e) {
+  if (e.repeat) return;                       // auto-repeat while held
+  e.preventDefault();
+  if (micMode === 'locked') { stopDictation(); return; }
+  if (micMode === 'pending-double') {         // the second tap
+    clearTimeout(tapTimer);
+    setMicMode('locked');
+    renderDictation();
+    return;
+  }
+  if (micOn) return;
+  keyDownAt = Date.now();
+  if (startDictation()) setMicMode('hold');
+}
+
+function dictateKeyUp(e) {
+  if (micMode !== 'hold') return;
+  e.preventDefault();
+  if (Date.now() - keyDownAt >= HOLD_MS) { stopDictation(); return; }
+  // Too quick to be a hold — hold the session open briefly in case a second
+  // tap is coming, which is what locks it on
+  setMicMode('pending-double');
+  renderDictation();
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => {
+    if (micMode === 'pending-double') stopDictation();
+  }, DOUBLE_TAP_MS);
+}
+
+/* ── Editing a pending clip ──────────────────────────────────────────────── */
+/*
+ * The card's fields are the source of truth, not the parse that produced them.
+ * Everything is read straight back off the DOM before a preview or a confirm,
+ * so a value typed and never blurred still counts.
+ */
+function pendingCardEl(id) { return document.querySelector('[data-pc="' + id + '"]'); }
+
+function syncPendingFromCard(pc) {
+  const card = pendingCardEl(pc.id);
+  if (!card) return;
+  const sEl = card.querySelector('.pc-start');
+  const eEl = card.querySelector('.pc-end');
+  const lEl = card.querySelector('.pc-label');
+  const pEl = card.querySelector('.pc-playlist');
+
+  const heldLength = Math.max(1, (pc.end - pc.start) || DEFAULT_DURATION.secs);
+  if (sEl && sEl.value.trim()) pc.start = Math.max(0, parseTime(sEl.value));
+  if (eEl && eEl.value.trim()) pc.end   = Math.max(0, parseTime(eEl.value));
+  // Moving the start past the end means the clip was dragged along the film,
+  // not shrunk to nothing — carry its length with it.
+  if (!(pc.end > pc.start)) pc.end = pc.start + heldLength;
+
+  pc.durationSecs = Math.round((pc.end - pc.start) * 10) / 10;
+  const named = DURATION_WORDS.find(d => d.secs === pc.durationSecs);
+  pc.durationName = named ? named.name : 'custom';
+
+  if (lEl) pc.label = lEl.value.trim() || ('Clip ' + fmt(pc.start));
+  if (pEl) {
+    pc.playlistId = pEl.value || null;
+    const pl = playlists.find(x => x.id === pc.playlistId);
+    pc.playlistName = pl ? pl.name : null;
+  }
+
+  let filmLen = 0;
+  try { filmLen = player && player.getDuration ? player.getDuration() : 0; } catch (e) {}
+  pc.warning = filmLen && pc.start >= filmLen
+    ? 'That is past the end of this film (' + fmt(filmLen) + ')' : '';
+}
+
+function syncAllPendingCards() { pendingClips.forEach(syncPendingFromCard); }
+
+/* Update in place rather than re-rendering, so the caret stays where it is. */
+function editPending(id) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (!pc) return;
+  syncPendingFromCard(pc);
+  const card = pendingCardEl(id);
+  if (!card) return;
+  const sEl = card.querySelector('.pc-start');
+  const eEl = card.querySelector('.pc-end');
+  if (sEl && document.activeElement !== sEl) sEl.value = fmt(pc.start);
+  if (eEl && document.activeElement !== eEl) eEl.value = fmt(pc.end);
+  const badge = card.querySelector('.pc-dur');
+  if (badge) badge.textContent = pc.durationName + ' · ' + pc.durationSecs + 's';
+  const warn = card.querySelector('.pc-warn');
+  if (warn) {
+    warn.textContent = pc.warning ? '⚠ ' + pc.warning : '';
+    warn.style.display = pc.warning ? 'block' : 'none';
+  }
+}
+
+/* Nudge a pending clip's start or end from the card, without typing. */
+function bumpPending(id, field, delta) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (!pc) return;
+  syncPendingFromCard(pc);
+  if (field === 'start') pc.start = Math.max(0, pc.start + delta);
+  else pc.end = Math.max(pc.start + 1, pc.end + delta);
+  if (!(pc.end > pc.start)) pc.end = pc.start + 1;
+  const card = pendingCardEl(id);
+  if (card) {
+    card.querySelector('.pc-start').value = fmt(pc.start);
+    card.querySelector('.pc-end').value   = fmt(pc.end);
+  }
+  editPending(id);
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+/* Plays a pending clip's range — buffers included, using the sliders as they
+ * stand — without committing anything. The clip watcher can't help here: it
+ * only enforces clips that already exist, so preview runs its own bound. */
+let previewTimer = null;
+let previewId = null;
+let previewEnd = 0;
+
+function pendingRange(pc) {
+  const before = parseFloat(document.getElementById('buf-before').value) || 0;
+  const after  = parseFloat(document.getElementById('buf-after').value)  || 0;
+  return { from: Math.max(0, pc.start - before), to: pc.end + after };
+}
+
+function previewPending(id) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (!pc) return;
+  syncPendingFromCard(pc);          // preview whatever the card says right now
+  if (!player || !videoLoaded) { toast('Load a film first'); return; }
+  if (previewId === id) { stopPreview(true); return; }   // second press stops it
+
+  stopPreview(false);
+  stopWatcher();
+  playAllMode = false; updatePlayAllBtn();
+  setFreeMode(true);            // nothing else may seize playback mid-preview
+
+  const { from, to } = pendingRange(pc);
+  previewId = id;
+  previewEnd = to;
+  try { player.seekTo(from, true); player.playVideo(); } catch (e) {}
+  document.getElementById('now-label').textContent = 'Preview · ' + pc.label;
+  document.getElementById('now-sub').textContent = fmt(from) + ' → ' + fmt(to) + '  ·  not saved yet';
+
+  previewTimer = setInterval(() => {
+    if (!player || !previewId) { stopPreview(false); return; }
+    let t = 0;
+    try { t = player.getCurrentTime(); } catch (e) { return; }
+    if (t >= previewEnd) { try { player.pauseVideo(); } catch (e) {} stopPreview(true); }
+  }, 100);
+  renderDictation();
+}
+
+function stopPreview(render) {
+  if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
+  previewId = null;
+  if (render) renderDictation();
+}
+
+/* ── Confirm / discard ───────────────────────────────────────────────────── */
+/* Fill the manual form and press its button, so a dictated clip and a typed one
+ * travel exactly the same path — buffers included. */
+function confirmPending(id) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (!pc) return;
+  syncPendingFromCard(pc);          // commit what's on the card, edits included
+  const startEl = document.getElementById('start-time');
+  const endEl   = document.getElementById('end-time');
+  const labelEl = document.getElementById('clip-label');
+  const plEl    = document.getElementById('clip-playlist');
+
+  const keep = { s: startEl.value, e: endEl.value, l: labelEl.value, p: plEl.value };
+
+  startEl.value = fmt(pc.start);
+  endEl.value   = fmt(pc.end);
+  labelEl.value = pc.label;
+  // No playlist heard: leave the dropdown on whatever is already selected
+  if (pc.playlistId && plEl.querySelector('option[value="' + pc.playlistId + '"]')) {
+    plEl.value = pc.playlistId;
+  }
+
+  // Was the film rolling? Confirming shouldn't interrupt watching on the fly.
+  let wasPlaying = false;
+  try {
+    wasPlaying = !!(player && player.getPlayerState &&
+                    window.YT && player.getPlayerState() === YT.PlayerState.PLAYING);
+  } catch (e) {}
+
+  const before = clips.length;
+  addClip();
+  const added = clips.length > before;
+
+  // addClip clears the form on success — give the user back anything they were typing
+  startEl.value = keep.s;
+  endEl.value   = keep.e;
+  labelEl.value = keep.l;
+  if (plEl.querySelector('option[value="' + keep.p + '"]')) plEl.value = keep.p;
+
+  if (added) {
+    pendingClips = pendingClips.filter(x => x.id !== id);
+    /*
+     * addClip selects the clip it just made, which hands it to the watcher —
+     * and the watcher pauses the moment the playhead is past that clip's end,
+     * which it almost always is when you're calling clips out live. Free scrub
+     * drops the selection and the enforcement, so the film simply keeps going.
+     */
+    stopPreview(false);
+    setFreeMode(true);
+    if (wasPlaying) { try { player.playVideo(); } catch (e) {} }
+  }
+  renderDictation();
+}
+
+function discardPending(id) {
+  if (previewId === id) { stopPreview(false); }
+  pendingClips = pendingClips.filter(x => x.id !== id);
+  renderDictation();
+}
+function confirmAllPending() {
+  // Snapshot: confirmPending mutates the queue as it goes
+  [...pendingClips].forEach(pc => confirmPending(pc.id));
+}
+function discardAllPending() {
+  stopPreview(false);
+  pendingClips = [];
+  renderDictation();
+}
+
+/* ── Rendering ───────────────────────────────────────────────────────────── */
+function renderDictation() {
+  const panel = document.getElementById('dictation');
+  const btn   = document.getElementById('mic-btn');
+  const text  = document.getElementById('mic-btn-text');
+  if (!panel || !btn) return;
+
+  const why = micUnavailableReason();
+  const key = hotkeyLabel(dictateHotkey);
+  btn.disabled = !!why;
+  btn.title = why || (micOn ? 'Stop dictating' : 'Dictate a clip — hold ' + key + ', or double-tap ' + key + ' to lock');
+
+  const chip = document.getElementById('hotkey-label');
+  const chipBtn = document.getElementById('hotkey-chip');
+  if (chip) chip.textContent = capturingHotkey ? 'Press a key…' : key;
+  if (chipBtn) {
+    chipBtn.classList.toggle('capturing', capturingHotkey);
+    chipBtn.title = 'Dictation hotkey — click to change';
+  }
+  btn.classList.toggle('active', micOn);
+  if (text) text.textContent = micOn ? 'Listening' : 'Dictate';
+
+  syncAllPendingCards();   // a rebuild is coming; keep whatever was typed
+  const show = micOn || pendingClips.length > 0 || capturingHotkey || aiParsing;
+  panel.style.display = show ? 'block' : 'none';
+  panel.classList.toggle('live', micOn);
+  if (!show) { panel.innerHTML = ''; return; }
+
+  const heard = (sessionText + ' ' + liveTranscript).replace(/\s+/g, ' ').trim();
+  let body;
+  if (capturingHotkey) {
+    body = '<span class="idle">Press the key you want to hold.<br>' +
+           'Fn / 🌐 can\'t be used — macOS keeps it inside the keyboard, so browsers never see it. ' +
+           'Right ⌥ is the nearest thing; or map Fn to F13 with Karabiner and press that. Esc to cancel.</span>';
+  } else if (heard) {
+    body = esc(sessionText) + (liveTranscript ? ' <span class="interim">' + esc(liveTranscript) + '…</span>' : '');
+  } else if (lastMiss) {
+    body = '<span class="miss">Heard “' + esc(lastMiss) + '” — no timestamp in that.</span>';
+  } else if (aiParsing) {
+    body = '<span class="idle">Parsing the transcript…</span>';
+  } else if (micOn) {
+    body = '<span class="idle">Call out as many clips as you like — they are all parsed when you stop.</span>';
+  } else {
+    body = '<span class="idle">Confirm or discard what is waiting.</span>';
+  }
+
+  const state = capturingHotkey ? 'Set hotkey'
+    : aiParsing ? 'Parsing'
+    : micOn ? (micMode === 'locked' ? 'Listening · locked' : 'Listening')
+    : 'Paused';
+
+  // Every parsed value is editable before it is committed — the parse is a
+  // starting point, not a verdict.
+  const filmPls = (() => {
+    const g = filmGame();
+    return g ? gamePlaylists(g.id) : [];
+  })();
+  const fallbackPl = (document.getElementById('clip-playlist') || {}).value || '';
+
+  const cards = pendingClips.map(pc => {
+    const chosen = pc.playlistId || fallbackPl;
+    const opts = filmPls.map(pl =>
+      `<option value="${pl.id}"${pl.id === chosen ? ' selected' : ''}>${pl.emoji} ${esc(pl.name)}</option>`
+    ).join('') || '<option value="">No playlists</option>';
+    return `
+    <div class="pending-card" data-pc="${pc.id}">
+      <div class="pc-row">
+        <input class="time-input pc-start" value="${fmt(pc.start)}" onchange="editPending('${pc.id}')"
+               onkeydown="if(event.key==='Enter')this.blur()" title="Clip start" />
+        <span class="pc-arrow">→</span>
+        <input class="time-input pc-end" value="${fmt(pc.end)}" onchange="editPending('${pc.id}')"
+               onkeydown="if(event.key==='Enter')this.blur()" title="Clip end" />
+        <span class="pending-dur pc-dur">${pc.durationName} · ${pc.durationSecs}s</span>
+        <span class="pc-bump">
+          <button class="pc-step" onclick="bumpPending('${pc.id}','start',-1)" title="Start 1s earlier">−</button>
+          <button class="pc-step" onclick="bumpPending('${pc.id}','end',1)" title="End 1s later">+</button>
+        </span>
+      </div>
+      <input class="text-input pc-label" value="${esc(pc.label)}" placeholder="Clip label"
+             oninput="editPending('${pc.id}')" />
+      <select class="pl-select pc-playlist" onchange="editPending('${pc.id}')">${opts}</select>
+      <div class="pending-heard">heard: ${esc(pc.raw)}</div>
+      <div class="pending-warn pc-warn" style="display:${pc.warning ? 'block' : 'none'}">${pc.warning ? '⚠ ' + esc(pc.warning) : ''}</div>
+      <div class="pending-btns">
+        <button class="btn${previewId === pc.id ? ' playing' : ''}" onclick="previewPending('${pc.id}')">
+          ${previewId === pc.id ? '⏹ Stop' : '▶ Preview'}
+        </button>
+        <button class="btn accent" onclick="confirmPending('${pc.id}')">Confirm</button>
+        <button class="btn ghost" onclick="discardPending('${pc.id}')">Discard</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const bulk = pendingClips.length > 1
+    ? `<div class="dict-bulk">
+         <button class="btn accent" onclick="confirmAllPending()">Confirm all ${pendingClips.length}</button>
+         <button class="btn ghost" onclick="discardAllPending()">Discard all</button>
+       </div>`
+    : '';
+
+  panel.innerHTML = `
+    <div class="dict-status">
+      <span class="dict-dot"></span>
+      <span>${state}</span>
+      <span class="dict-hint">${capturingHotkey ? 'Esc to cancel' : `Hold ${esc(key)} · double-tap to lock`}</span>
+    </div>
+    <div class="dict-transcript">${body}</div>
+    ${cards}${bulk}`;
+}
+
+/* keyboard shortcuts */
+function typingInto(el) {
+  return !!el && (['INPUT','TEXTAREA','SELECT'].includes(el.tagName) || el.isContentEditable);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (typingInto(e.target)) return;
+  // Space would both click a focused confirm/discard button and toggle playback
+  if (e.target.closest && e.target.closest('#dictation')) return;
+  if (e.key === 'Escape') { closeGameMenu(); closeTeamMenu(); closeRenameModal(); closeMoveModal(); closeSettings(); return; }
   if (view !== 'film') return;   // no hidden player to drive from the dashboard
+  if (e.code === dictateHotkey) {
+    // A modifier hotkey sets its own modifier flag, so only guard the others
+    const bare = MODIFIER_CODES.has(dictateHotkey) || (!e.metaKey && !e.ctrlKey && !e.altKey);
+    if (bare) { dictateKeyDown(e); return; }
+  }
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
-  if (e.key === 'ArrowRight') nextClip();
-  if (e.key === 'ArrowLeft') prevClip();
+  if (e.key === 'ArrowRight') { e.preventDefault(); e.shiftKey ? nextClip() : nudge(SEEK_STEP); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); e.shiftKey ? prevClip() : nudge(-SEEK_STEP); }
+});
+
+// Not gated on the target: a keyup can land elsewhere if focus moved mid-hold,
+// and leaving the mic stuck open would be worse than a stray release.
+document.addEventListener('keyup', (e) => {
+  if (e.code === dictateHotkey) dictateKeyUp(e);
+});
+
+/*
+ * Clicking the video hands focus to the YouTube iframe, and from then on every
+ * key event goes to YouTube's document rather than ours — the dictation hotkey
+ * and the space/arrow clip controls all go dead with no visible cause. Chrome
+ * fires blur on the parent window when a child frame takes focus, so that is
+ * where we take it back. The click has already reached the player, so play and
+ * pause still work; only keyboard focus comes home.
+ */
+window.addEventListener('blur', () => {
+  setTimeout(() => {
+    const el = document.activeElement;
+    if (el && el.tagName === 'IFRAME') {
+      try { el.blur(); } catch (e) {}
+      try { window.focus(); } catch (e) {}
+      return;                       // focus moved inside the page, not out of it
+    }
+    // Genuinely left the window — don't leave a held mic running
+    if (micMode === 'hold') stopDictation();
+  }, 0);
 });
 </script>
 </body>
