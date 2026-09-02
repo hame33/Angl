@@ -616,6 +616,8 @@
 /* ── State ── */
 let player = null;
 let videoLoaded = false;
+let currentVideoId = null;
+let pendingSeek = null;   // {start, play} — applied once a newly loaded player is ready
 let clips = [];
 let playlists = [];
 let activeClipIdx = -1;
@@ -636,6 +638,8 @@ window.addEventListener('DOMContentLoaded', () => {
   renderClips();
   updatePlaylistSelect();
   updateBufDisplay();
+  // Reload the film we were last working on so clips stay playable across sessions
+  if (document.getElementById('yt-url').value) loadVideo();
 });
 
 /* ── Persistence ── */
@@ -643,14 +647,17 @@ function saveToStorage() {
   try {
     localStorage.setItem('filmroom_clips', JSON.stringify(clips));
     localStorage.setItem('filmroom_playlists', JSON.stringify(playlists));
+    if (currentVideoId) localStorage.setItem('filmroom_video', currentVideoId);
   } catch(e) {}
 }
 function loadFromStorage() {
   try {
     const c = localStorage.getItem('filmroom_clips');
     const p = localStorage.getItem('filmroom_playlists');
+    const v = localStorage.getItem('filmroom_video');
     if (c) clips = JSON.parse(c);
     if (p) playlists = JSON.parse(p);
+    if (v) document.getElementById('yt-url').value = 'https://www.youtube.com/watch?v=' + v;
     if (!playlists.length) {
       playlists = [{ id: uid(), name: 'General', emoji: '🏀' }];
     }
@@ -702,10 +709,18 @@ function extractVideoId(url) {
   return null;
 }
 
-function loadVideo() {
-  const url = document.getElementById('yt-url').value.trim();
-  const vid = extractVideoId(url);
+function loadVideo(vidOverride) {
+  const vid = vidOverride || extractVideoId(document.getElementById('yt-url').value.trim());
   if (!vid) { toast('Could not find a YouTube video ID in that URL.'); return; }
+
+  // Tear down any existing player before swapping films
+  stopWatcher();
+  videoLoaded = false;
+  if (player && player.destroy) { try { player.destroy(); } catch(e) {} }
+  player = null;
+
+  currentVideoId = vid;
+  saveToStorage();
   document.getElementById('placeholder').style.display = 'none';
   const c = document.getElementById('player-container');
   c.style.display = 'block';
@@ -728,7 +743,15 @@ function createPlayer(vid) {
     host: 'https://www.youtube-nocookie.com',
     playerVars: { controls: 1, rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.href },
     events: {
-      onReady: () => { videoLoaded = true; document.getElementById('play-btn').disabled = activeClipIdx < 0; },
+      onReady: () => {
+        videoLoaded = true;
+        document.getElementById('play-btn').disabled = activeClipIdx < 0;
+        if (pendingSeek) {
+          const p = pendingSeek; pendingSeek = null;
+          player.seekTo(p.start, true);
+          if (p.play) player.playVideo();
+        }
+      },
       onStateChange: (e) => {
         const S = YT.PlayerState;
         if (e.data === S.PLAYING) {
@@ -765,14 +788,7 @@ function startWatcher() {
         const vis = visibleClips();
         const nextIdx = activeClipIdx + 1;
         if (nextIdx < vis.length) {
-          stopWatcher();
-          activeClipIdx = nextIdx;
-          renderClips();
-          const next = vis[nextIdx];
-          document.getElementById('now-label').textContent = next.label;
-          document.getElementById('now-sub').textContent = fmt(next.effStart) + ' → ' + fmt(next.effEnd) + '  ·  buf -' + next.bufBefore + 's / +' + next.bufAfter + 's';
-          player.seekTo(next.effStart, true);
-          player.playVideo();
+          playClipAtIdx(nextIdx, { keepPlayAll: true });
         } else {
           // End of playlist
           stopWatcher();
@@ -908,6 +924,7 @@ function visibleClips() {
 function addClip() {
   const startStr = document.getElementById('start-time').value;
   const endStr = document.getElementById('end-time').value;
+  if (!currentVideoId) { toast('Load a film first — clips need a source video'); return; }
   if (!startStr || !endStr) { toast('Enter start and end times'); return; }
   const start = parseTime(startStr);
   const end = parseTime(endStr);
@@ -916,7 +933,7 @@ function addClip() {
   const bufAfter = parseFloat(document.getElementById('buf-after').value);
   const label = document.getElementById('clip-label').value.trim() || ('Clip ' + (clips.length + 1));
   const playlistId = document.getElementById('clip-playlist').value || (playlists[0] && playlists[0].id);
-  const clip = { id: uid(), label, start, end, bufBefore, bufAfter, effStart: Math.max(0, start - bufBefore), effEnd: end + bufAfter, playlistId };
+  const clip = { id: uid(), label, videoId: currentVideoId, start, end, bufBefore, bufAfter, effStart: Math.max(0, start - bufBefore), effEnd: end + bufAfter, playlistId };
   clips.push(clip);
   document.getElementById('start-time').value = '';
   document.getElementById('end-time').value = '';
@@ -940,7 +957,8 @@ function selectClipByIdx(idx) {
     if (videoLoaded) document.getElementById('play-btn').disabled = false;
   }
 }
-function playClipAtIdx(idx) {
+function playClipAtIdx(idx, opts) {
+  opts = opts || {};
   stopWatcher(); // always kill watcher before switching clips
   // Exit free mode when explicitly playing a clip
   if (freeMode) {
@@ -948,13 +966,21 @@ function playClipAtIdx(idx) {
     document.getElementById('free-btn').classList.remove('active');
   }
   // If manually picking a clip, exit play-all mode
-  if (playAllMode) {
+  if (playAllMode && !opts.keepPlayAll) {
     playAllMode = false;
     updatePlayAllBtn();
   }
   selectClipByIdx(idx);
   const clip = visibleClips()[idx];
-  if (!clip || !player || !videoLoaded) return;
+  if (!clip) return;
+  // Clip belongs to a different film — swap the player over, then seek once it's ready
+  if (clip.videoId && clip.videoId !== currentVideoId) {
+    pendingSeek = { start: clip.effStart, play: true };
+    document.getElementById('yt-url').value = 'https://www.youtube.com/watch?v=' + clip.videoId;
+    loadVideo(clip.videoId);
+    return;
+  }
+  if (!player || !videoLoaded) return;
   player.seekTo(clip.effStart, true);
   player.playVideo();
 }
@@ -964,8 +990,7 @@ function togglePlay() {
     player.pauseVideo();
   } else {
     // Always replay from clip start when hitting the play button
-    const c = visibleClips()[activeClipIdx];
-    if (c) { stopWatcher(); player.seekTo(c.effStart, true); player.playVideo(); }
+    playClipAtIdx(activeClipIdx, { keepPlayAll: true });
   }
 }
 function prevClip() { const v = visibleClips(); if (!v.length) return; playClipAtIdx(activeClipIdx <= 0 ? v.length - 1 : activeClipIdx - 1); }
@@ -976,7 +1001,7 @@ function playAll() {
   playAllMode = !playAllMode;
   if (playAllMode) {
     stopWatcher(); // will be restarted by playClipAtIdx -> playVideo -> onStateChange
-    playClipAtIdx(activeClipIdx >= 0 ? activeClipIdx : 0);
+    playClipAtIdx(activeClipIdx >= 0 ? activeClipIdx : 0, { keepPlayAll: true });
   } else {
     stopWatcher();
     player && player.pauseVideo();

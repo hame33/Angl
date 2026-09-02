@@ -68,6 +68,22 @@ def safe_filename(s: str) -> str:
     return s[:60] or "clip"
 
 
+def extract_video_id(url: str) -> str | None:
+    """Pull the YouTube video id out of any of the usual URL shapes."""
+    patterns = [
+        r"youtu\.be/([^?&\s/#]+)",
+        r"[?&]v=([^&\s#]+)",
+        r"youtube\.com/embed/([^?&\s/#]+)",
+        r"youtube\.com/shorts/([^?&\s/#]+)",
+        r"youtube\.com/v/([^?&\s/#]+)",
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
+
+
 def fmt_time(sec: float) -> str:
     sec = int(sec)
     h, rem = divmod(sec, 3600)
@@ -108,29 +124,42 @@ def pick_playlist(playlists, filter_name: str | None):
 
 def group_by_video(clips: list) -> dict:
     """
-    Clips don't store the source URL — they're timestamp-only.
-    We need the user to tell us the video URL, or we infer from context.
-    Since Film Room stores clips against a single loaded video per session,
-    we ask once if there are clips without an embedded videoId.
+    Group clips by their source video.
+
+    Film Room stamps each clip with the YouTube videoId it was cut from, so a
+    playlist spanning several games downloads each game once and cuts from the
+    right source. Older exports predate that field — we prompt once for those,
+    and only for those.
+
     Returns dict: video_url -> [clips]
     """
-    # Check if clips have a videoId field (future-proof)
-    has_video_id = all("videoId" in c for c in clips)
-    if has_video_id:
-        grouped = {}
-        for c in clips:
-            vid = f"https://www.youtube.com/watch?v={c['videoId']}"
-            grouped.setdefault(vid, []).append(c)
-        return grouped
-    else:
-        # All clips assumed to be from one video — ask for URL
+    grouped: dict[str, list] = {}
+    legacy = []
+
+    for c in clips:
+        vid = c.get("videoId")
+        if vid:
+            grouped.setdefault(f"https://www.youtube.com/watch?v={vid}", []).append(c)
+        else:
+            legacy.append(c)
+
+    if legacy:
         print()
-        print(f"{C.YELLOW}Your clips don't have a video URL stored in them.{C.RESET}")
-        url = input("  Paste the YouTube URL for these clips: ").strip()
+        warn(f"{len(legacy)} clip(s) have no source video stored (exported before videoId was added).")
+        url = input("  Paste the YouTube URL for those clips: ").strip()
         if not url:
             err("No URL provided.")
             sys.exit(1)
-        return {url: clips}
+        # Normalise so a youtu.be link merges with an existing watch?v= group
+        # instead of downloading the same film twice.
+        vid = extract_video_id(url)
+        key = f"https://www.youtube.com/watch?v={vid}" if vid else url
+        grouped.setdefault(key, []).extend(legacy)
+
+    if len(grouped) > 1:
+        info(f"Clips span {bold(str(len(grouped)))} source videos")
+
+    return grouped
 
 
 def download_full_video(url: str, tmp_dir: str) -> str:
