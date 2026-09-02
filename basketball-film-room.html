@@ -873,8 +873,21 @@ function confirmRename() {
   updatePlaylistSelect();
   renderClips();
 }
+function clearNowPlaying() {
+  activeClipIdx = -1;
+  document.getElementById('now-label').textContent = 'No clip selected';
+  document.getElementById('now-sub').textContent = 'Select a clip or add one below';
+  document.getElementById('play-btn').disabled = true;
+}
 function selectPlaylist(id) {
+  // activeClipIdx is a position in visibleClips(), so it points at a different
+  // clip once the filter changes. Follow the selected clip across the switch,
+  // or drop the selection if it isn't in the new view.
+  const current = visibleClips()[activeClipIdx];
   activePl = id;
+  const idx = current ? visibleClips().findIndex(c => c.id === current.id) : -1;
+  if (idx < 0) { stopWatcher(); clearNowPlaying(); }
+  else activeClipIdx = idx;
   renderPlaylists();
   renderClips();
   const pl = id ? playlists.find(p => p.id === id) : null;
@@ -1017,24 +1030,33 @@ function updatePlayAllBtn() {
 function deleteClip(id) {
   const idx = clips.findIndex(c => c.id === id);
   if (idx < 0) return;
+  // Remember the selected clip by identity — deleting anything above it in the
+  // list would otherwise shift activeClipIdx onto a different clip.
+  const current = visibleClips()[activeClipIdx];
   clips.splice(idx, 1);
-  if (activeClipIdx >= visibleClips().length) activeClipIdx = visibleClips().length - 1;
+  const stillVisible = current && current.id !== id
+    ? visibleClips().findIndex(c => c.id === current.id)
+    : -1;
+  if (stillVisible < 0) { stopWatcher(); clearNowPlaying(); }
+  else activeClipIdx = stillVisible;
   saveToStorage();
   renderPlaylists();
   renderClips();
-  if (visibleClips().length === 0) { document.getElementById('now-label').textContent = 'No clip selected'; document.getElementById('now-sub').textContent = 'Select a clip or add one below'; document.getElementById('play-btn').disabled = true; }
 }
 function clearAllClips() {
   const list = visibleClips();
   if (!list.length) return;
-  if (!confirm(`Delete all ${list.length} clip(s) in this view?`)) return;
+  // On "All clips" this wipes every playlist, not just what's on screen — say so.
+  const pl = activePl === null ? null : playlists.find(p => p.id === activePl);
+  const scope = pl
+    ? `all ${list.length} clip(s) in "${pl.name}"`
+    : `all ${list.length} clip(s) across every playlist`;
+  if (!confirm(`Delete ${scope}?\n\nThis cannot be undone.`)) return;
   const ids = new Set(list.map(c => c.id));
   clips = clips.filter(c => !ids.has(c.id));
-  activeClipIdx = -1;
+  stopWatcher();
+  clearNowPlaying();
   saveToStorage(); renderPlaylists(); renderClips();
-  document.getElementById('now-label').textContent = 'No clip selected';
-  document.getElementById('now-sub').textContent = 'Select a clip or add one below';
-  document.getElementById('play-btn').disabled = true;
 }
 let freeMode = false;
 let playAllMode = false;
@@ -1056,8 +1078,7 @@ function toggleFreeMode() {
     document.getElementById('now-sub').textContent = 'Watcher off — scrub and play freely';
     document.getElementById('play-btn').disabled = true;
   } else {
-    document.getElementById('now-label').textContent = 'No clip selected';
-    document.getElementById('now-sub').textContent = 'Select a clip or add one below';
+    clearNowPlaying();
   }
 }
 function updateBufDisplay() {
