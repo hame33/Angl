@@ -1,0 +1,16 @@
+# Virtualenvs
+filmroom-env/
+venv/
+.venv/
+
+# Exported clips and film room JSON
+clips/
+my_clips/
+*.mp4
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store

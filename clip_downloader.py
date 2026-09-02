@@ -9,10 +9,14 @@ Usage:
     python clip_downloader.py filmroom-clips.json --playlist "Offence"
     python clip_downloader.py filmroom-clips.json --playlist "Offence" --output ./my_clips
 
-Requirements:
-    pip install yt-dlp
-    brew install ffmpeg        (Mac)
-    # or: https://ffmpeg.org/download.html (Windows)
+Setup:
+    python3 -m venv filmroom-env
+    source filmroom-env/bin/activate          # Windows: filmroom-env\\Scripts\\activate
+    pip install -r requirements.txt
+
+That's all — imageio-ffmpeg ships a static ffmpeg binary, so there's no need for
+Homebrew or a system ffmpeg install. A system ffmpeg on PATH is used in
+preference to the bundled one if you have one.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -43,22 +48,64 @@ def err(msg):  print(f"{C.RED}✗{C.RESET}  {msg}")
 def bold(msg): return f"{C.BOLD}{msg}{C.RESET}"
 
 
+# ── Tool resolution ───────────────────────────────────────────────────────────
+# Filled in by resolve_tools() at startup. Neither tool has to be on PATH: both
+# are pip-installable, so a virtualenv is enough and Homebrew is never required.
+YTDLP = ["yt-dlp"]
+FFMPEG = "ffmpeg"
+
+
+def find_ffmpeg() -> str | None:
+    """ffmpeg from PATH, else the static build bundled with imageio-ffmpeg."""
+    on_path = shutil.which("ffmpeg")
+    if on_path:
+        return on_path
+    try:
+        import imageio_ffmpeg
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and os.path.exists(exe):
+            return exe
+    except Exception:
+        pass
+    return None
+
+
+def find_ytdlp() -> list | None:
+    """yt-dlp as a CLI, else run it as a module on the current interpreter."""
+    on_path = shutil.which("yt-dlp")
+    if on_path:
+        return [on_path]
+    try:
+        import yt_dlp  # noqa: F401
+        return [sys.executable, "-m", "yt_dlp"]
+    except ImportError:
+        return None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def check_dependencies():
-    """Make sure yt-dlp and ffmpeg are on PATH."""
+def resolve_tools():
+    """Locate yt-dlp and ffmpeg, or explain how to install them."""
+    global YTDLP, FFMPEG
+    ytdlp, ffmpeg = find_ytdlp(), find_ffmpeg()
+
     missing = []
-    for tool in ("yt-dlp", "ffmpeg"):
-        if subprocess.run(["which", tool], capture_output=True).returncode != 0:
-            missing.append(tool)
+    if not ytdlp:
+        missing.append("yt-dlp")
+    if not ffmpeg:
+        missing.append("ffmpeg")
     if missing:
         err(f"Missing dependencies: {', '.join(missing)}")
         print()
-        if "yt-dlp" in missing:
-            print("  Install yt-dlp:  pip install yt-dlp")
-        if "ffmpeg" in missing:
-            print("  Install ffmpeg:  brew install ffmpeg   (Mac)")
-            print("                   https://ffmpeg.org/download.html  (Windows)")
+        print("  Install both with pip — no Homebrew needed:")
+        print(f"      {C.BOLD}pip install yt-dlp imageio-ffmpeg{C.RESET}")
+        print()
+        print(f"  {C.DIM}imageio-ffmpeg ships a static ffmpeg binary, so this works")
+        print(f"  inside a plain virtualenv on any platform.{C.RESET}")
         sys.exit(1)
+
+    YTDLP, FFMPEG = ytdlp, ffmpeg
+    if not shutil.which("ffmpeg"):
+        info(f"{C.DIM}using bundled ffmpeg from imageio-ffmpeg{C.RESET}")
 
 
 def safe_filename(s: str) -> str:
@@ -162,22 +209,60 @@ def group_by_video(clips: list) -> dict:
     return grouped
 
 
+# YouTube periodically breaks whichever internal player client yt-dlp defaults to.
+# Rather than pin one, try the default first and fall back through the others.
+# None = yt-dlp's own default.
+PLAYER_CLIENTS = [None, "android", "tv", "ios", "web_safari", "mweb"]
+
+
 def download_full_video(url: str, tmp_dir: str) -> str:
     """Download best quality MP4 to a temp file. Returns local path."""
     out_template = os.path.join(tmp_dir, "source.%(ext)s")
-    info(f"Downloading video (this may take a minute)…")
-    result = subprocess.run([
-        "yt-dlp",
-        "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--merge-output-format", "mp4",
-        "--output", out_template,
-        "--no-playlist",
-        "--quiet",
-        "--progress",
-        url,
-    ])
-    if result.returncode != 0:
-        err("yt-dlp failed. Check the URL and try again.")
+    info("Downloading video (this may take a minute)…")
+
+    last_err = ""
+    for attempt, client in enumerate(PLAYER_CLIENTS):
+        cmd = [
+            *YTDLP,
+            "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "--merge-output-format", "mp4",
+            "--ffmpeg-location", FFMPEG,   # yt-dlp merges streams itself
+            "--output", out_template,
+            "--no-playlist",
+            "--quiet",
+            "--progress",
+        ]
+        if client:
+            cmd += ["--extractor-args", f"youtube:player_client={client}"]
+        cmd.append(url)
+
+        # Let progress print to stdout; capture stderr so we can report failures.
+        result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            if client:
+                info(f"{C.DIM}(downloaded via the {client} player client){C.RESET}")
+            break
+
+        last_err = result.stderr or ""
+        # Clear partial downloads before retrying with a different client
+        for f in Path(tmp_dir).iterdir():
+            try:
+                f.unlink()
+            except OSError:
+                pass
+        if attempt < len(PLAYER_CLIENTS) - 1:
+            warn(f"YouTube rejected that request — retrying as '{PLAYER_CLIENTS[attempt + 1]}'…")
+    else:
+        err("yt-dlp could not download this video.")
+        if last_err:
+            print(f"{C.DIM}{last_err.strip()[-600:]}{C.RESET}")
+        print()
+        print("  Every player client was refused. Usually that means yt-dlp is")
+        print("  out of date relative to YouTube's latest change:")
+        print(f"      {C.BOLD}pip install --upgrade yt-dlp{C.RESET}")
+        print()
+        print(f"  {C.DIM}If that reports you're already current, this Python may be too old")
+        print(f"  to receive newer yt-dlp releases — check `python3 --version` (needs 3.10+).{C.RESET}")
         sys.exit(1)
 
     # Find the downloaded file
@@ -197,7 +282,7 @@ def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int):
     print(f"\n  [{idx+1}/{total}] {bold(label)}  {C.DIM}({fmt_time(start)} → {fmt_time(clip['effEnd'])}){C.RESET}")
 
     result = subprocess.run([
-        "ffmpeg",
+        FFMPEG,
         "-ss",       str(start),       # seek before input (fast)
         "-i",        source,
         "-t",        str(duration),
@@ -235,7 +320,7 @@ def main():
     print(f"{C.DIM}{'─' * 40}{C.RESET}")
 
     # 1. Check deps
-    check_dependencies()
+    resolve_tools()
 
     # 2. Load JSON
     if not os.path.exists(args.json_file):

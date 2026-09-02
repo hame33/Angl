@@ -1,0 +1,5 @@
+# Film Room clip downloader dependencies.
+# Both are pure pip installs — no Homebrew or system ffmpeg required.
+
+yt-dlp>=2024.1.1        # fetches the source video from YouTube
+imageio-ffmpeg>=0.4.9   # ships a static ffmpeg binary used to cut the clips
