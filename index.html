@@ -1227,18 +1227,38 @@ function isQuotaError(e) {
       || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
       || e.code === 22 || e.code === 1014;
 }
-function loadFromStorage() {
+/* Read one stored key. A value that won't parse is kept verbatim under a
+ * `_corrupt` twin before anything else touches the key, because the next
+ * saveToStorage() writes over the original and the raw text is the only copy
+ * of those clips left. */
+function readStoredList(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
   try {
-    const c = localStorage.getItem('filmroom_clips');
-    const p = localStorage.getItem('filmroom_playlists');
-    const g = localStorage.getItem('filmroom_games');
-    const t = localStorage.getItem('filmroom_teams');
-    if (c) clips     = JSON.parse(c) || [];
-    if (p) playlists = JSON.parse(p) || [];
-    if (g) games     = JSON.parse(g) || [];
-    if (t) teams     = JSON.parse(t) || [];
-  } catch(e) {
-    clips = []; playlists = []; games = []; teams = [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch(e) {}
+  try { localStorage.setItem(key + '_corrupt', raw); } catch(e) {}
+  return false;   // null = nothing stored, false = stored but unreadable
+}
+function loadFromStorage() {
+  // Each key stands on its own. Sharing one try/catch meant a single unreadable
+  // value emptied all four in memory, and the next save then wrote those empty
+  // arrays over the three keys that were still perfectly good.
+  const loaded = {
+    clips:     readStoredList('filmroom_clips'),
+    playlists: readStoredList('filmroom_playlists'),
+    games:     readStoredList('filmroom_games'),
+    teams:     readStoredList('filmroom_teams'),
+  };
+  if (loaded.clips)     clips     = loaded.clips;
+  if (loaded.playlists) playlists = loaded.playlists;
+  if (loaded.games)     games     = loaded.games;
+  if (loaded.teams)     teams     = loaded.teams;
+
+  const damaged = Object.keys(loaded).filter(k => loaded[k] === false);
+  if (damaged.length) {
+    toast('Could not read ' + damaged.join(', ') + ' — kept the rest, saved the original as *_corrupt');
   }
   // Saves made before games existed have flat playlists and no gameId
   if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
