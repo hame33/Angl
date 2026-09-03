@@ -1405,7 +1405,7 @@ function createPlayer(vid) {
   player = new YT.Player('yt-player', {
     videoId: vid,
     host: 'https://www.youtube-nocookie.com',
-    playerVars: { controls: 1, rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.href },
+    playerVars: { controls: 1, rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
     events: {
       onReady: () => {
         videoLoaded = true;
