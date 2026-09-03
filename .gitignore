@@ -1,9 +1,10 @@
 # Virtualenvs
+angl-env/
 filmroom-env/
 venv/
 .venv/
 
-# Exported clips and film room JSON
+# Exported clips and Angl JSON
 clips/
 my_clips/
 *.mp4

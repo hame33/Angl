@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Film Room Clip Downloader
-=========================
-Downloads and cuts clips from a Film Room JSON export into individual MP4s.
+Angl Clip Downloader
+====================
+Downloads and cuts clips from an Angl JSON export into individual MP4s.
 
 Usage:
-    python clip_downloader.py filmroom-clips.json
-    python clip_downloader.py filmroom-clips.json --list
-    python clip_downloader.py filmroom-clips.json --team "U16 Girls 2025"
-    python clip_downloader.py filmroom-clips.json --game "Round 3 vs Eagles"
-    python clip_downloader.py filmroom-clips.json --playlist "Offence"
-    python clip_downloader.py filmroom-clips.json --team "U16 Girls 2025" --playlist "Offence"
-    python clip_downloader.py filmroom-clips.json --playlist "Offence" --output ./my_clips
+    python clip_downloader.py angl-clips.json
+    python clip_downloader.py angl-clips.json --list
+    python clip_downloader.py angl-clips.json --team "U16 Girls 2025"
+    python clip_downloader.py angl-clips.json --game "Round 3 vs Eagles"
+    python clip_downloader.py angl-clips.json --playlist "Offence"
+    python clip_downloader.py angl-clips.json --team "U16 Girls 2025" --playlist "Offence"
+    python clip_downloader.py angl-clips.json --playlist "Offence" --output ./my_clips
 
 Clips nest team → game → playlist. A category name repeats across games (and
 across teams), so `--playlist "Offence"` deliberately matches all of them — that
@@ -19,8 +19,8 @@ is how you pull one category for a whole season. Narrow with `--team` and/or
 `--game`. Exports from older versions have no teams, or no games, and still work.
 
 Setup:
-    python3.13 -m venv filmroom-env
-    source filmroom-env/bin/activate          # Windows: filmroom-env\\Scripts\\activate
+    python3.13 -m venv angl-env
+    source angl-env/bin/activate          # Windows: angl-env\\Scripts\\activate
     pip install -r requirements.txt
 
 Note the explicit `python3.13` — not `python3`. macOS ships 3.9 as `python3`,
@@ -304,7 +304,7 @@ def group_by_video(clips: list) -> dict:
     """
     Group clips by their source video.
 
-    Film Room stamps each clip with the YouTube videoId it was cut from, so a
+    Angl stamps each clip with the YouTube videoId it was cut from, so a
     playlist spanning several games downloads each game once and cuts from the
     right source. Older exports predate that field — we prompt once for those,
     and only for those.
@@ -439,9 +439,9 @@ def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int):
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="Download Film Room clips as individual MP4 files."
+        description="Download Angl clips as individual MP4 files."
     )
-    parser.add_argument("json_file",        help="Path to filmroom-clips.json")
+    parser.add_argument("json_file",        help="Path to angl-clips.json")
     parser.add_argument("--team",     "-t", help="Team or season to export (default: every team)")
     parser.add_argument("--game",     "-g", help="Game title to export (default: every game)")
     parser.add_argument("--playlist", "-p", help="Playlist name to export; matches across games unless --game is given")
@@ -450,7 +450,7 @@ def main():
     args = parser.parse_args()
 
     print()
-    print(f"{C.BOLD}🏀 Film Room Clip Downloader{C.RESET}")
+    print(f"{C.BOLD}Angl Clip Downloader{C.RESET}")
     print(f"{C.DIM}{'─' * 40}{C.RESET}")
 
     # 1. Load JSON

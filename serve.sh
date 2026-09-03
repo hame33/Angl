@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Serve the Film Room locally and open it in your browser.
+# Serve Angl locally and open it in your browser.
 #
 #   ./serve.sh
 #
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 PORT="${PORT:-8777}"
-PAGE="basketball-film-room.html"
+PAGE="index.html"
 URL="http://localhost:${PORT}/${PAGE}"
 
 # Always serve the repo, no matter where this is called from
@@ -35,7 +35,7 @@ open_browser() {
 
 # Reuse an already-running server rather than failing on a busy port
 if curl -sf -o /dev/null "$URL" 2>/dev/null; then
-  echo "Film Room is already being served on port ${PORT}."
+  echo "Angl is already being served on port ${PORT}."
   echo "Opening ${URL}"
   open_browser
   exit 0
@@ -43,13 +43,13 @@ fi
 
 # Port is taken, but not by us — serving elsewhere would hide existing clips
 if lsof -ti:"$PORT" >/dev/null 2>&1; then
-  echo "error: port ${PORT} is in use by something that isn't the Film Room." >&2
+  echo "error: port ${PORT} is in use by something that isn't Angl." >&2
   echo "       Free it, or run with a different port: PORT=8778 ./serve.sh" >&2
   echo "       Note that a different port starts with an empty clip list." >&2
   exit 1
 fi
 
-echo "Serving Film Room at ${URL}"
+echo "Serving Angl at ${URL}"
 echo "Press Ctrl+C to stop."
 echo
 

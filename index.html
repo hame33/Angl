@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<title>Film Room</title>
+<title>Angl</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -877,10 +877,11 @@
   <header class="topbar">
     <div class="topbar-logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M5 12h14M12 5c-2.5 2.5-2.5 9.5 0 14M12 5c2.5 2.5 2.5 9.5 0 14"/>
+        <path d="M4 19h16" stroke-linecap="round"/>
+        <path d="M4 19L17 6" stroke-linecap="round"/>
+        <path d="M12 19a8 8 0 0 0-2.3-5.7" stroke-width="1.5" opacity="0.6"/>
       </svg>
-      Film Room
+      Angl
     </div>
     <div class="topbar-divider"></div>
 
@@ -1195,7 +1196,12 @@ window.addEventListener('DOMContentLoaded', () => {
   setView('dashboard');
 });
 
-/* ── Persistence ── */
+/* ── Persistence ──
+ * The `filmroom_` key prefix predates the rename to Angl and is deliberately
+ * kept. localStorage is keyed by origin, so these keys hold every clip a user
+ * has already tagged; renaming the prefix would strand that data behind keys
+ * nothing reads any more. A cosmetic rename is never worth a silent data loss.
+ */
 function saveToStorage() {
   try {
     localStorage.setItem('filmroom_clips', JSON.stringify(clips));
@@ -1941,7 +1947,7 @@ function exportJSON() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'filmroom-clips.json';
+  a.download = 'angl-clips.json';
   a.click();
   toast('Exported');
 }
@@ -2598,7 +2604,7 @@ const MODIFIER_CODES = new Set([
   'AltLeft','AltRight','MetaLeft','MetaRight','ControlLeft','ControlRight',
   'ShiftLeft','ShiftRight','CapsLock',
 ]);
-// Keys the film room already owns, or that would trap the user
+// Keys Angl already owns, or that would trap the user
 const HOTKEY_BLOCKED = new Set(['Space','ArrowLeft','ArrowRight','Escape','Enter','NumpadEnter','Tab']);
 
 const IS_MAC = /Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent || '');
@@ -3267,7 +3273,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') { cancelHotkeyCapture(); return; }
   if (!e.code) return;
   if (HOTKEY_BLOCKED.has(e.code)) {
-    toast(hotkeyLabel(e.code) + ' is already used by the film room — pick another');
+    toast(hotkeyLabel(e.code) + ' is already used by Angl — pick another');
     return;
   }
   setHotkey(e.code);

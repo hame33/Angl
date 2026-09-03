@@ -1,4 +1,4 @@
-# Film Room clip downloader dependencies.
+# Angl clip downloader dependencies.
 # Both are pure pip installs — no Homebrew or system ffmpeg required.
 #
 # Install into a venv built with python3.13 (or any 3.10+), NOT the `python3`
