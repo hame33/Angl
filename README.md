@@ -139,6 +139,26 @@ no key. If you want better parsing of messy speech, you can point it at an LLM i
 Settings — Anthropic's Messages API or any OpenAI-compatible endpoint — using your
 own key, which is stored locally and sent nowhere else.
 
+### Saying a timestamp
+
+Whatever time you call out first is where the clip starts, and the rest of what
+you say is the label. Times are read as spoken, not only as digits: "fifteen
+thirty four", "15:34" and "1534" all mean 15:34, "minute 15" and a bare "15" both
+mean 15:00, and "12 seconds" means 0:12 rather than 12:00 — the unit settles it.
+
+A full game upload usually runs past an hour, so hours are read in every form
+they get said in:
+
+- "1:00:41", "1 00 41" or "one oh oh forty one" → **1:00:41**
+- "an hour and 42 seconds" → **1:00:42**
+- "1 hour 2 minutes 5 seconds" → **1:02:05**
+- "sixty two minutes 41 seconds" or "62:41" → **1:02:41**
+- "105:30" → **1:45:30**
+
+A bare number with no unit means minutes wherever it appears, hours included, so
+"one hour forty one" is 1:41:00. To land on 1:00:41 either say the unit — "one
+hour forty one seconds" — or read the clock back as "one oh oh forty one".
+
 ## Status
 
 Angl is built by a basketball coach and used every week on real game film. It works,
