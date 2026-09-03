@@ -111,6 +111,26 @@ category for a whole season. Narrow it with `--team` and `--game`.
 
 Both dependencies are pure pip installs — no Homebrew, no system ffmpeg.
 
+### A JavaScript runtime (optional, but install it)
+
+Recent yt-dlp releases print a warning when they can't find a JavaScript runtime,
+and say that extracting from YouTube without one is deprecated and may cost you
+some formats. Downloads still work without it today. But "works today" and YouTube
+are a poor pairing to build a season on, and it is a two-minute fix now versus a
+confusing download failure in the middle of a Sunday night clip-up.
+
+`deno` is the runtime yt-dlp looks for by default:
+
+```bash
+curl -fsSL https://deno.land/install.sh | sh
+```
+
+On Windows that is `irm https://deno.land/install.ps1 | iex`. Both install under
+your home directory and need no admin rights. If you already have Node,
+`npm install -g deno` works too, though a default global prefix may want `sudo`.
+There is nothing to configure afterwards — yt-dlp finds it on PATH and the
+warning stops.
+
 ## Dictation
 
 Dictation is optional. Hold the configured key (Right Alt by default), describe the
