@@ -1211,7 +1211,21 @@ function saveToStorage() {
     if (activeGame) localStorage.setItem('filmroom_active_game', activeGame);
     localStorage.setItem('filmroom_active_team', activeTeam || '');
     if (currentVideoId) localStorage.setItem('filmroom_video', currentVideoId);
-  } catch(e) {}
+  } catch(e) {
+    // A failed save looks exactly like a successful one: the clips are still on
+    // screen because they're in memory, and they're gone on the next reload.
+    // Out of storage is the case that actually happens, so name it and push the
+    // user at Export, which is the only way out. Anything else stays non-fatal.
+    if (isQuotaError(e)) toast('Storage full — clips are NOT being saved. Export now.');
+  }
+}
+/* Firefox reports a full quota under its own legacy name rather than the
+ * standard one, and older engines only set the numeric code. */
+function isQuotaError(e) {
+  if (!e) return false;
+  return e.name === 'QuotaExceededError'
+      || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+      || e.code === 22 || e.code === 1014;
 }
 function loadFromStorage() {
   try {
