@@ -33,9 +33,19 @@ version explicitly so you can't land on the system one by accident.
 If `python3.13` isn't found, install it without needing admin rights:
     pip install --user uv && uv python install 3.13
 
-That's all — imageio-ffmpeg ships a static ffmpeg binary, so there's no need for
-Homebrew or a system ffmpeg install. A system ffmpeg on PATH is used in
-preference to the bundled one if you have one.
+That's all that's required — imageio-ffmpeg ships a static ffmpeg binary, so
+there's no need for Homebrew or a system ffmpeg install. A system ffmpeg on PATH
+is used in preference to the bundled one if you have one.
+
+Worth adding anyway: a JavaScript runtime. Recent yt-dlp releases warn when they
+can't find one and call YouTube extraction without it deprecated. Downloads still
+work today, so this isn't urgent — but the failure, when it arrives, lands in the
+middle of a clip-up rather than at a convenient moment. `deno` is the runtime
+yt-dlp looks for by default, and it needs no admin rights:
+    curl -fsSL https://deno.land/install.sh | sh
+    # Windows: irm https://deno.land/install.ps1 | iex
+
+There's nothing to configure afterwards — yt-dlp finds it on PATH.
 """
 
 from __future__ import annotations
