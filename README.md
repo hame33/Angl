@@ -6,7 +6,7 @@ Angl turns game film you already have on YouTube into a tagged, searchable clip
 library — then cuts those clips into real MP4 files you can put in front of your
 team. It runs entirely on your own machine. No account, no upload, no subscription.
 
-![Angl's film library — three games, tagged clips grouped by category](docs/screenshot.png)
+![Angl's film library — a game's clips grouped into categories, with the most recent clips and their timestamps](docs/screenshot.png)
 
 ---
 
