@@ -1959,6 +1959,16 @@ function importJSON(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!data.clips && !data.playlists && !data.games) { toast('Invalid file'); return; }
+      // Import replaces the library outright and there is no undo, so say what
+      // is about to go. A first import has nothing to lose — don't ask then.
+      if (clips.length || games.length || teams.length) {
+        const inGames = (data.games || []).length;
+        const inClips = (data.clips || []).length;
+        if (!confirm('Replace your library with this file?\n\n' +
+          'You have ' + games.length + ' game(s) and ' + clips.length + ' clip(s). ' +
+          'They will be replaced by ' + inGames + ' game(s) and ' + inClips + ' clip(s) from this file.\n\n' +
+          'This cannot be undone — export first if you want a backup.')) return;
+      }
       clips     = data.clips     || [];
       playlists = data.playlists || [];
       games     = data.games     || [];
