@@ -67,6 +67,24 @@ def err(msg):  print(f"{C.RED}✗{C.RESET}  {msg}")
 def bold(msg): return f"{C.BOLD}{msg}{C.RESET}"
 
 
+def use_utf8_output():
+    """
+    Make this script's own output printable on Windows.
+
+    Every status line above carries a ✓/→/⚠ glyph, the dividers are box-drawing
+    characters, and clip labels routinely contain emoji. Windows defaults stdout
+    to the locale codepage — cp1252 — which raises UnicodeEncodeError on all of
+    them, and redirecting to a file hits that even on the console-UTF-8 builds
+    that are otherwise fine. Ask for utf-8; if a stream won't take it, at least
+    stop it from raising mid-run.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 # ── Tool resolution ───────────────────────────────────────────────────────────
 # Filled in by resolve_tools() at startup. Neither tool has to be on PATH: both
 # are pip-installable, so a virtualenv is enough and Homebrew is never required.
@@ -440,6 +458,8 @@ def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int, crf: 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
+    use_utf8_output()   # before anything prints, argparse's own errors included
+
     parser = argparse.ArgumentParser(
         description="Download Angl clips as individual MP4 files."
     )
