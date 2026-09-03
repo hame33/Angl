@@ -510,15 +510,15 @@ def main():
         sys.exit(0)
     info(f"Exporting {bold(str(len(clips)))} clip(s) from {bold(selection)}")
 
-    # 4. Group by source video
+    # 5. Group by source video
     grouped = group_by_video(clips)
 
-    # 5. Create output folder
+    # 6. Create output folder
     out_dir = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
     info(f"Output folder: {bold(str(out_dir.resolve()))}")
 
-    # 6. Process each video source
+    # 7. Process each video source
     # A category pulled across a season yields same-named clips from different
     # games — prefix with the game so the files stay tellable apart.
     titles = {g["id"]: g.get("title", "") for g in games}
@@ -549,7 +549,7 @@ def main():
                     total_ok += 1
                 global_idx += 1
 
-    # 7. Summary
+    # 8. Summary
     print()
     print(f"{C.DIM}{'─' * 40}{C.RESET}")
     if total_ok == total_clips:
