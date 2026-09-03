@@ -388,7 +388,10 @@ def download_full_video(url: str, tmp_dir: str) -> str:
         cmd.append(url)
 
         # Let progress print to stdout; capture stderr so we can report failures.
-        result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+        # errors="replace": yt-dlp's message is the whole diagnostic, so a byte
+        # the locale can't decode must not take the error path down with it.
+        result = subprocess.run(cmd, stderr=subprocess.PIPE, text=True,
+                                errors="replace")
         if result.returncode == 0:
             if client:
                 info(f"{C.DIM}(downloaded via the {client} player client){C.RESET}")
@@ -444,7 +447,7 @@ def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int, crf: 
         "-movflags", "+faststart",     # streaming-friendly (important for WhatsApp)
         "-y",                          # overwrite if exists
         out_path,
-    ], capture_output=True, text=True)
+    ], capture_output=True, text=True, errors="replace")
 
     if result.returncode != 0:
         warn(f"ffmpeg error for '{label}':")
