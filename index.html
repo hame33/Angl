@@ -1979,10 +1979,15 @@ function exportJSON() {
   // version 3 adds teams; clips keep videoId so old downloaders still work
   const data = { version: 3, teams, games, playlists, clips };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'angl-clips.json';
   a.click();
+  // The blob holds a full copy of the library, and a coach exporting after
+  // every game would pin one per export for the life of the tab. Revoking on
+  // a delay rather than straight after click(), which can cancel the download.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
   toast('Exported');
 }
 function importJSON(event) {
