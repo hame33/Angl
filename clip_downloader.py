@@ -404,7 +404,7 @@ def download_full_video(url: str, tmp_dir: str) -> str:
     sys.exit(1)
 
 
-def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int):
+def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int, crf: int = 23):
     """Cut a single clip from the source file using ffmpeg."""
     start    = clip["effStart"]
     duration = clip["effEnd"] - clip["effStart"]
@@ -420,7 +420,7 @@ def cut_clip(source: str, clip: dict, out_path: str, idx: int, total: int):
         "-c:v",      "libx264",        # re-encode for clean cut + WhatsApp compat
         "-c:a",      "aac",
         "-preset",   "fast",
-        "-crf",      "23",             # good quality / size balance
+        "-crf",      str(crf),         # higher = smaller file, lower quality
         "-movflags", "+faststart",     # streaming-friendly (important for WhatsApp)
         "-y",                          # overwrite if exists
         out_path,
@@ -447,7 +447,15 @@ def main():
     parser.add_argument("--playlist", "-p", help="Playlist name to export; matches across games unless --game is given")
     parser.add_argument("--output",   "-o", help="Output folder (default: ./clips)", default="./clips")
     parser.add_argument("--list",     "-l", action="store_true", help="List the games and playlists, then exit")
+    parser.add_argument("--crf", type=int, default=23, metavar="N",
+                        help="x264 quality, 0-51 (default: 23). Higher makes smaller, "
+                             "lower-quality files; 28 is a good size-first choice")
     args = parser.parse_args()
+
+    # Outside 0-51 ffmpeg either errors or produces something unusable, and the
+    # failure only shows up per-clip after the film has already downloaded.
+    if not 0 <= args.crf <= 51:
+        parser.error("--crf must be between 0 and 51 (default 23; higher = smaller file)")
 
     print()
     print(f"{C.BOLD}Angl Clip Downloader{C.RESET}")
@@ -511,7 +519,7 @@ def main():
                 filename  = f"{global_idx+1:02d}_{prefix}{safe_filename(label)}.mp4"
                 out_path  = str(out_dir / filename)
 
-                success = cut_clip(source_path, clip, out_path, global_idx, total_clips)
+                success = cut_clip(source_path, clip, out_path, global_idx, total_clips, args.crf)
                 if success:
                     total_ok += 1
                 global_idx += 1
@@ -525,7 +533,10 @@ def main():
         warn(f"{total_ok}/{total_clips} clip(s) exported ({total_clips - total_ok} failed)")
 
     print()
-    print(f"{C.DIM}WhatsApp tip: files over 16 MB may not send — lower --crf if needed{C.RESET}")
+    # Raising CRF shrinks the file — the reverse of what this tip used to say.
+    suggest = min(args.crf + 5, 51)
+    print(f"{C.DIM}WhatsApp tip: files over 16 MB may not send — re-run with a higher --crf")
+    print(f"  to shrink them (you used {args.crf}; try --crf {suggest}). Higher trades quality for size.{C.RESET}")
     print()
 
 
