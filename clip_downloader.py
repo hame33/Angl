@@ -158,7 +158,9 @@ def fmt_time(sec: float) -> str:
 
 
 def load_json(path: str):
-    with open(path) as f:
+    # Explicit utf-8, not the platform locale: every playlist record carries an
+    # emoji, and a cp1252 default makes an export unreadable on Windows.
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     teams     = data.get("teams", [])       # absent in pre-teams exports
     games     = data.get("games", [])       # absent in pre-games exports
