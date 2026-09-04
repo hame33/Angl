@@ -46,6 +46,7 @@ function fakeStorage() {
     },
     removeItem: (k) => { map.delete(k); },
     clear: () => map.clear(),
+    keys: () => [...map.keys()],
   };
   return store;
 }
@@ -73,7 +74,18 @@ globalThis.__app = {
   get dictationLog() { return dictationLog; },
   set dictationLog(v) { dictationLog = v; },
   set answerConfirm(v) { globalThis.answerConfirm = v; },
-  DURATION_WORDS, DEFAULT_DURATION, DUR_SAMPLE_CAP,
+  durationWords, DEFAULT_DURATION, DUR_SAMPLE_CAP,
+  // Sport profiles: a team owns one, and the parser reads it through activeProfile
+  SPORT_PROFILES, DEFAULT_SPORT, sportProfile, teamProfile, activeProfile,
+  protectedSpans, wordsToDigits, createTeam, setTeamSport, seedPlaylists,
+  buildParserPrompt,
+  get teams() { return teams; },
+  set teams(v) { teams = v; },
+  get activeTeam() { return activeTeam; },
+  set activeTeam(v) { activeTeam = v; },
+  get loadedGameId() { return loadedGameId; },
+  set loadedGameId(v) { loadedGameId = v; },
+  migrateToTeams, migrateToGames, readStoredList,
 };
 `;
 
@@ -123,6 +135,8 @@ export function loadApp() {
   // Host-side handles on the sandbox's storage, for tests about persistence
   const app = sandbox.__app;
   app.__storageGet = (k) => sandbox.localStorage.getItem(k);
+  app.__storageSet = (k, v) => sandbox.localStorage.setItem(k, v);
+  app.__storageKeys = () => sandbox.localStorage.keys();
   app.__failWritesTo = (key) => { sandbox.localStorage.failFor = (k) => k === key; };
   app.__allowAllWrites = () => { sandbox.localStorage.failFor = null; };
   return app;

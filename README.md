@@ -36,7 +36,10 @@ they are looking for.
 ## How it works
 
 Film is organised **team → game → playlist**, so a club coach running two squads
-across a season doesn't end up with one undifferentiated pile of clips.
+across a season doesn't end up with one undifferentiated pile of clips. Each team
+picks a sport when you create it, which is what decides its starting categories and
+the words the parser listens for. You can change it later from the team menu; it
+only affects what happens next, never what you have already tagged.
 
 1. Paste a YouTube URL to add a game.
 2. Scrub to a moment, set start and end, label it, drop it in a category.
@@ -173,8 +176,11 @@ When you do want to say a length, say it, and nothing is inferred:
   and `minus` all work the same way, and both times are read exactly like any
   other timestamp: "an hour 26 to an hour 26 30" is a thirty-second clip.
 - "at 15:34 **for 20 seconds**", or just "for 20"
-- "at 15:34 **long** pull up" — `short` is 5s, `medium` 10s, `long` 15s and
-  `possession` 24s
+- "at 15:34 **long** pull up" — `short` is 5s, `medium` 10s and `long` 15s, plus
+  whatever else your sport has: basketball adds `possession` at 24s for the shot
+  clock, netball has no equivalent and so has none. Wording your sport claims for
+  itself is never read as a length — a basketball "long two" and a netball "long
+  pass" both keep their word and get their length worked out like any other clip.
 
 A "to" only opens a range when a time follows it straight away, so "at 15:34
 Smith to Jones give and go" is still one clip with a long label. And a range that
@@ -231,12 +237,21 @@ your clips come first.
 Angl is built by a basketball coach and used every week on real game film. It works,
 and it is early.
 
-Basketball shows through in a couple of places — mainly the dictation parser, which
-knows that "long two" and "and one" are labels rather than numbers. The data model
-itself is sport-agnostic, and making the rest follow is the main thing on the list.
-If you coach something else and hit a basketball assumption, please open an issue —
-there is a template for exactly that, [A sport assumption I hit][sport-issue], and
-it is the most useful contribution right now.
+Each team picks a sport, and everything Angl assumes about that sport — the default
+categories, the length words, and the wording the parser must not mistake for a
+number — comes from that one choice. **Basketball** and **netball** ship today. A team
+saved before sports existed reads as basketball, which is what it was, and nothing
+already tagged is touched.
+
+That is what makes "long two" a shot rather than a fifteen-second clip for a
+basketball team, and "long pass" a pass rather than one for a netball team. Neither
+sport inherits the other's vocabulary.
+
+Two sports is not many, and the netball profile was written by a basketball coach —
+its categories and example wording are a guess, not a netball coach's answer. If you
+coach something else, or something the same and better, please open an issue: there
+is a template for exactly that, [A sport assumption I hit][sport-issue], and it is
+still the most useful contribution to this project.
 
 ## Contributing
 

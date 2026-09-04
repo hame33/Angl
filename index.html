@@ -1052,7 +1052,7 @@
 
       <div>
         <div class="section-label">Label & playlist</div>
-        <input type="text" class="text-input" id="clip-label" placeholder="Clip label (e.g. Pick & roll, fast break…)" style="margin-bottom:8px" />
+        <input type="text" class="text-input" id="clip-label" placeholder="Clip label" style="margin-bottom:8px" />
         <select class="pl-select" id="clip-playlist"></select>
       </div>
 
@@ -1204,18 +1204,103 @@ let isPlaying = false;
 let loopEnabled = false;
 let watchInterval = null;
 let renameTarget = null;
-let selectedEmoji = '🏀';
-
-const EMOJIS = ['🏀','🎬','⚡','🔥','🛡️','🎯','💡','📌'];
+let selectedEmoji = '';   // resolved from the team's sport the first time the row is built
 
 // Seeded into a brand-new game only when there's no previous game to copy from.
 const DEFAULT_TEAM_NAME = 'My team';
 
-const DEFAULT_CATEGORIES = [
-  { name: 'Offence',    emoji: '⚡' },
-  { name: 'Defence',    emoji: '🛡️' },
-  { name: 'Highlights', emoji: '🔥' },
-];
+/* ── Sport profiles ──
+ * Everything Angl assumes about a particular sport lives in one of these and
+ * nowhere else, so adding a sport is adding an entry rather than hunting for
+ * hardcoded words. A team picks one; a team saved before profiles existed has
+ * no `sport` field and reads as basketball, which is what it was.
+ *
+ *   sportNoun         what the LLM is told it is listening to
+ *   categories        the playlists a team's first game is seeded with
+ *   fallbackCategory  the bucket a clip lands in when its playlist is gone
+ *   protectedPhrases  wording this sport claims for itself — never read as a
+ *                     length or converted to a number. "long two" is a shot,
+ *                     not a fifteen-second clip, and netball's "long pass"
+ *                     collides with exactly the same length word.
+ *   durationWords     the length words a coach can say out loud. Sports differ:
+ *                     basketball has a shot clock, netball has nothing like it.
+ */
+const DEFAULT_SPORT = 'basketball';
+
+const NEUTRAL_EMOJIS = ['🎬','⚡','🔥','🛡️','🎯','💡','📌'];
+
+const SPORT_PROFILES = {
+  basketball: {
+    id: 'basketball',
+    name: 'Basketball',
+    sportNoun: 'basketball',
+    defaultEmoji: '🏀',
+    categories: [
+      { name: 'Offence',    emoji: '⚡' },
+      { name: 'Defence',    emoji: '🛡️' },
+      { name: 'Highlights', emoji: '🔥' },
+    ],
+    fallbackCategory: { name: 'General', emoji: '🏀' },
+    protectedPhrases: ['long two', 'and one'],
+    durationWords: [
+      { re: /\b(?:full\s+possession|shot\s+clock|possession)\b/i, secs: 24, name: 'possession' },
+      { re: /\bmedium\b/i, secs: 10, name: 'medium' },
+      { re: /\bshort\b/i,  secs:  5, name: 'short'  },
+      { re: /\blong\b/i,   secs: 15, name: 'long'   },
+    ],
+    labelPlaceholder: 'Pick & roll, fast break…',
+    promptExample: { label: 'Pick and roll', playlist: 'Offence' },
+    probeTranscript: '15:34 long pick and roll',
+  },
+  netball: {
+    id: 'netball',
+    name: 'Netball',
+    sportNoun: 'netball',
+    defaultEmoji: '🥅',
+    categories: [
+      { name: 'Attack',     emoji: '⚡' },
+      { name: 'Defence',    emoji: '🛡️' },
+      { name: 'Highlights', emoji: '🔥' },
+    ],
+    fallbackCategory: { name: 'General', emoji: '🥅' },
+    // "long pass" and "short pass" collide with the length words the same way
+    // "long two" does. Netball has no shot clock, so it has no length word for one.
+    protectedPhrases: ['long pass', 'short pass', 'long ball'],
+    durationWords: [
+      { re: /\bmedium\b/i, secs: 10, name: 'medium' },
+      { re: /\bshort\b/i,  secs:  5, name: 'short'  },
+      { re: /\blong\b/i,   secs: 15, name: 'long'   },
+    ],
+    labelPlaceholder: 'Centre pass, turnover…',
+    promptExample: { label: 'Centre pass turnover', playlist: 'Attack' },
+    probeTranscript: '15:34 long centre pass',
+  },
+};
+
+/* An unknown or missing sport is basketball: that is what every team saved
+ * before profiles existed was, and guessing anything else would relabel it. */
+function sportProfile(id) {
+  return SPORT_PROFILES[id] || SPORT_PROFILES[DEFAULT_SPORT];
+}
+function teamProfile(team) {
+  return sportProfile(team && team.sport);
+}
+/* The sport in force right now. The film on screen decides, because that is
+ * what is being clipped; the active team is the fallback for the dashboard,
+ * and the mixed "All teams" view has no answer, so it takes the default. */
+function activeProfile() {
+  const g = filmGame();
+  return teamProfile((g ? gameTeam(g) : null) || currentTeam());
+}
+/* The length words a coach can say, for whichever sport is in force. */
+function durationWords() {
+  return activeProfile().durationWords;
+}
+/* The sport's own emoji first, then the neutral ones. */
+function emojiChoices() {
+  const own = activeProfile().defaultEmoji;
+  return [own].concat(NEUTRAL_EMOJIS.filter(e => e !== own));
+}
 
 /* ── Init ── */
 window.addEventListener('DOMContentLoaded', () => {
@@ -1372,8 +1457,10 @@ function migrateToGames(legacyVideoId) {
     const byName = new Map();
     list.forEach(c => {
       const old   = oldPlaylists.find(pl => pl.id === c.playlistId);
-      const name  = old ? old.name  : 'General';
-      const emoji = old ? old.emoji : '🏀';
+      // A pre-teams library has no sport on record, so it keeps the default one
+      const home  = sportProfile().fallbackCategory;
+      const name  = old ? old.name  : home.name;
+      const emoji = old ? old.emoji : home.emoji;
       if (!byName.has(name)) {
         const pl = { id: uid(), gameId: game.id, name, emoji };
         byName.set(name, pl);
@@ -1383,7 +1470,10 @@ function migrateToGames(legacyVideoId) {
       c.playlistId = byName.get(name).id;
       if (!c.videoId && videoId) c.videoId = videoId;
     });
-    if (!byName.size) playlists.push({ id: uid(), gameId: game.id, name: 'General', emoji: '🏀' });
+    if (!byName.size) {
+      const home = sportProfile().fallbackCategory;
+      playlists.push({ id: uid(), gameId: game.id, name: home.name, emoji: home.emoji });
+    }
   });
 
   // Playlists that never held a clip would otherwise vanish — park them on the
@@ -1625,7 +1715,8 @@ function captureTime(field) {
 /* ── Playlists ── */
 function buildEmojiRow() {
   const row = document.getElementById('emoji-row');
-  row.innerHTML = EMOJIS.map(e =>
+  if (!selectedEmoji) selectedEmoji = activeProfile().defaultEmoji;
+  row.innerHTML = emojiChoices().map(e =>
     `<div class="emoji-opt${e === selectedEmoji ? ' selected' : ''}" onclick="selectEmoji('${e}')">${e}</div>`
   ).join('');
 }
@@ -1667,7 +1758,8 @@ function deletePlaylist(id) {
   const siblings = gamePlaylists(pl.gameId).filter(p => p.id !== id);
   let fallback = siblings.find(p => p.name === 'General') || siblings[0];
   if (!fallback) {
-    fallback = { id: uid(), gameId: pl.gameId, name: 'General', emoji: '🏀' };
+    const home = teamProfile(gameTeam(games.find(g => g.id === pl.gameId))).fallbackCategory;
+    fallback = { id: uid(), gameId: pl.gameId, name: home.name, emoji: home.emoji };
     playlists.push(fallback);
   }
   clips.forEach(c => { if (c.playlistId === id) c.playlistId = fallback.id; });
@@ -1786,6 +1878,10 @@ function renderPlaylists() {
 function updatePlaylistSelect() {
   const sel = document.getElementById('clip-playlist');
   const prev = sel.value;
+  // The example label follows the sport, so a netball coach is not shown a
+  // pick and roll. Set here because this already runs when the film changes.
+  const labelEl = document.getElementById('clip-label');
+  if (labelEl) labelEl.placeholder = 'Clip label (e.g. ' + activeProfile().labelPlaceholder + ')';
   // Scope to the game whose film is on screen — in a cross-game category view
   // that is not necessarily the game in the sidebar.
   const game = filmGame();
@@ -1829,7 +1925,8 @@ function addClip() {
   if (!playlistId || !playlists.some(pl => pl.id === playlistId && pl.gameId === game.id)) {
     // Every clip needs a home, even in a game whose playlists were all deleted
     const own = gamePlaylists(game.id);
-    const fallback = own[0] || { id: uid(), gameId: game.id, name: 'General', emoji: '🏀' };
+    const home = teamProfile(gameTeam(game)).fallbackCategory;
+    const fallback = own[0] || { id: uid(), gameId: game.id, name: home.name, emoji: home.emoji };
     if (!own.length) playlists.push(fallback);
     playlistId = fallback.id;
   }
@@ -2108,16 +2205,32 @@ function importJSON(event) {
 /* ── Teams ───────────────────────────────────────────────────────────────── */
 /* A team owns games. Name it however you track them — "U16 Girls", "2025", or
  * "Senior Men 2025"; it is one free-text label, not a team/season pair. */
-function createTeam(name) {
+function createTeam(name, sport) {
   name = (name || '').trim();
   if (!name) { toast('Enter a team name'); return; }
   if (teams.some(t => t.name.toLowerCase() === name.toLowerCase())) {
     toast('"' + name + '" already exists'); return;
   }
-  const team = { id: uid(), name, createdAt: Date.now() };
+  const team = { id: uid(), name, sport: sportProfile(sport).id, createdAt: Date.now() };
   teams.push(team);
   selectTeam(team.id);
   toast('Team added');
+}
+
+/* Change a team's sport. Only what happens from here on is affected: the
+ * clips, playlists and games already saved are the coach's record of what they
+ * watched, and re-labelling them to fit a new profile would be a lie about the
+ * past. New games seed from the new sport; existing ones keep their categories. */
+function setTeamSport(id, sport) {
+  const team = teams.find(t => t.id === id);
+  if (!team) return;
+  const next = sportProfile(sport);
+  if (team.sport === next.id) return;
+  team.sport = next.id;
+  saveToStorage();
+  renderTeamMenu();
+  updatePlaylistSelect();
+  toast(team.name + ' is now ' + next.name);
 }
 
 function selectTeam(id) {
@@ -2180,8 +2293,9 @@ function submitNewTeam(e) {
   if (!input) return;
   const name = input.value.trim();
   if (!name) { toast('Enter a team name'); return; }
+  const sportEl = document.getElementById('new-team-sport');
   addingTeam = false;
-  createTeam(name);   // selects the new team and re-renders
+  createTeam(name, sportEl ? sportEl.value : DEFAULT_SPORT);   // selects the new team and re-renders
 }
 
 function renderTeamMenu() {
@@ -2191,6 +2305,7 @@ function renderTeamMenu() {
     const tg = games.filter(g => g.teamId === t.id);
     const ids = new Set(tg.map(g => g.id));
     const n = clips.filter(c => ids.has(c.gameId)).length;
+    const sport = teamProfile(t);
     return `
       <div class="team-menu-item${t.id === activeTeam ? ' active' : ''}" onclick="selectTeam('${t.id}')">
         <div class="tm-info">
@@ -2198,6 +2313,11 @@ function renderTeamMenu() {
           <div class="tm-count">${tg.length} game${tg.length !== 1 ? 's' : ''} · ${n} clip${n !== 1 ? 's' : ''}</div>
         </div>
         <div class="tm-actions">
+          <select class="pl-select" style="font-size:11px;padding:2px 4px" title="Sport"
+                  onclick="event.stopPropagation()" onchange="event.stopPropagation();setTeamSport('${t.id}',this.value)">
+            ${Object.keys(SPORT_PROFILES).map(k =>
+              `<option value="${k}"${k === sport.id ? ' selected' : ''}>${esc(SPORT_PROFILES[k].name)}</option>`).join('')}
+          </select>
           <button class="icon-btn" onclick="event.stopPropagation();openRenameModal('${t.id}','team')" title="Rename team">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
@@ -2219,6 +2339,10 @@ function renderTeamMenu() {
     ? `<div class="team-add-form" onclick="event.stopPropagation()">
          <input id="new-team-name" placeholder="Team or year, e.g. U16 Girls 2025" maxlength="60"
                 onkeydown="if(event.key==='Enter')submitNewTeam(event)" />
+         <select id="new-team-sport" class="pl-select" style="width:100%;margin-bottom:6px">
+           ${Object.keys(SPORT_PROFILES).map(k =>
+             `<option value="${k}"${k === DEFAULT_SPORT ? ' selected' : ''}>${esc(SPORT_PROFILES[k].name)}</option>`).join('')}
+         </select>
          <div style="display:flex;gap:6px">
            <button class="btn accent" style="flex:1;font-size:12px;padding:5px" onclick="submitNewTeam(event)">Create</button>
            <button class="btn ghost" style="font-size:12px;padding:5px" onclick="toggleAddTeam(event)">Cancel</button>
@@ -2284,7 +2408,8 @@ function seedPlaylists(gameId, teamId) {
   const template = prev
     ? gamePlaylists(prev.id).map(pl => ({ name: pl.name, emoji: pl.emoji }))
     : [];
-  (template.length ? template : DEFAULT_CATEGORIES).forEach(t => {
+  const teamCats = teamProfile(teams.find(t => t.id === teamId)).categories;
+  (template.length ? template : teamCats).forEach(t => {
     playlists.push({ id: uid(), gameId, name: t.name, emoji: t.emoji });
   });
 }
@@ -2296,7 +2421,7 @@ function createGame(url, title) {
   // A game must belong to a team, even when the mixed view is showing
   let team = currentTeam() || teams[0];
   if (!team) {
-    team = { id: uid(), name: DEFAULT_TEAM_NAME, createdAt: Date.now() };
+    team = { id: uid(), name: DEFAULT_TEAM_NAME, sport: DEFAULT_SPORT, createdAt: Date.now() };
     teams.push(team);
   }
   activeTeam = team.id;
@@ -2759,12 +2884,48 @@ try {
 let capturingHotkey = false;
 
 const DEFAULT_DURATION = { secs: 5, name: 'short' };
-const DURATION_WORDS = [
-  { re: /\b(?:full\s+possession|shot\s+clock|possession)\b/i, secs: 24, name: 'possession' },
-  { re: /\bmedium\b/i, secs: 10, name: 'medium' },
-  { re: /\bshort\b/i,  secs:  5, name: 'short'  },
-  { re: /\blong\b/i,   secs: 15, name: 'long'   },
-];
+
+/*
+ * A sport's own wording, protected from the length words it collides with.
+ * "long two" is a shot and "long pass" is a pass; neither is a fifteen-second
+ * clip, and the coach should not have to work around their own vocabulary.
+ * Returns the character spans of the transcript the sport has claimed.
+ */
+function protectedSpans(text, profile) {
+  const phrases = ((profile || activeProfile()).protectedPhrases) || [];
+  const spans = [];
+  const hay = String(text);
+  phrases.forEach(phrase => {
+    // Whitespace in a phrase matches any run of it, so "long   two" still counts
+    const src = String(phrase).trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\s+/g, '\\s+');
+    if (!src) return;
+    const re = new RegExp('\\b' + src + '\\b', 'gi');
+    let m;
+    while ((m = re.exec(hay))) {
+      spans.push([m.index, m.index + m[0].length]);
+      if (m.index === re.lastIndex) re.lastIndex++;   // never spin on an empty match
+    }
+  });
+  return spans;
+}
+
+/* Does [start, end) overlap anything the sport has claimed? */
+function spanClaimed(spans, start, end) {
+  return spans.some(sp => start < sp[1] && end > sp[0]);
+}
+
+/* The first match of `re` that no protected phrase already owns. */
+function firstUnclaimed(text, re, spans) {
+  const g = new RegExp(re.source, re.flags.indexOf('g') >= 0 ? re.flags : re.flags + 'g');
+  let m;
+  while ((m = g.exec(text))) {
+    if (!spanClaimed(spans, m.index, m.index + m[0].length)) return m;
+    if (m.index === g.lastIndex) g.lastIndex++;
+  }
+  return null;
+}
 
 /* ── Smart clip durations ────────────────────────────────────────────────────
  * A dictated clip with no length word in it used to get a flat 5 seconds,
@@ -2773,8 +2934,10 @@ const DURATION_WORDS = [
  * coach's own clips actually end up, and answering from that.
  *
  * Everything stays here: one localStorage key, medians over the recent past,
- * no network, and not one basketball word hardcoded. A netball coach's
- * "centre pass" earns its own length the same way a "full court press" does.
+ * no network, and not one sport's word hardcoded anywhere in it. A netball
+ * coach's "centre pass" earns its own length the same way a basketball coach's
+ * "full court press" does — the model only ever sees playlist names and the
+ * coach's own words, which is what keeps it the same code for both.
  */
 const DURATION_MODEL_KEY = 'filmroom_duration_model';
 const DUR_MODEL_VERSION  = 1;
@@ -2952,7 +3115,7 @@ function smartDurationsOn() {
  * Where a clip's length comes from, in strict order of authority:
  *
  *   explicit  the coach stated it — a range, or "for 20 seconds"
- *   keyword   the coach said short / medium / long / possession
+ *   keyword   the coach said one of their sport's length words
  *   learned   their own history for this category, tuned by the words spoken
  *   category  their median for the category alone
  *   global    their median across everything
@@ -2969,9 +3132,12 @@ function resolveDuration(input) {
   // Either handed a keyword the caller already matched, or find one ourselves
   let kw = input.keyword || null;
   if (!kw && input.transcript) {
+    // A length word inside the sport's own wording is not a length
+    const text = String(input.transcript);
+    const claimed = protectedSpans(text);
     let at = -1;
-    for (const d of DURATION_WORDS) {
-      const m = String(input.transcript).match(d.re);
+    for (const d of durationWords()) {
+      const m = firstUnclaimed(text, d.re, claimed);
       if (m && (at === -1 || m.index < at)) { at = m.index; kw = d; }
     }
   }
@@ -3005,7 +3171,7 @@ function durResult(secs, name, source, confidence, extra) {
   // A stated length is the coach's word and stands; everything inferred is
   // held inside the range a clip can sensibly be.
   if (source !== 'explicit') out = Math.min(DUR_MAX_SECS, Math.max(DUR_MIN_SECS, out));
-  const named = name || (DURATION_WORDS.find(d => d.secs === out) || {}).name || 'custom';
+  const named = name || (durationWords().find(d => d.secs === out) || {}).name || 'custom';
   return Object.assign({ secs: out, name: named, source, confidence, n: 0, category: '', tokens: [] }, extra || {});
 }
 
@@ -3241,12 +3407,26 @@ function micUnavailableReason() {
 
 /* "fifteen thirty four" → "15 34". Only converts where a timestamp could
  * actually begin — the start, or just after a word like "minute" — because a
- * basketball label is full of number words ("long two", "and one") that must
- * survive untouched. */
+ * coach's label is full of number words ("long two", "and one") that must
+ * survive untouched. Where that structural rule is not enough — "an hour and
+ * one" arms the converter right where "and one" needs protecting — the sport's
+ * own protected phrases settle it. */
 function wordsToDigits(text) {
-  const toks = String(text).split(/\s+/);
+  const src = String(text);
+  const toks = src.split(/\s+/);
   const word = t => String(t || '').toLowerCase().replace(/[^a-z]/g, '');
   const out = [];
+  // Where each token starts in `src`, so a token can be tested against the
+  // spans the sport has claimed. Tokens are unique only by position, not text.
+  const claimed = protectedSpans(src);
+  const at = [];
+  let scan = 0;
+  for (const t of toks) {
+    const i = src.indexOf(t, scan);
+    at.push(i < 0 ? scan : i);
+    scan = (i < 0 ? scan : i) + t.length;
+  }
+  const owned = i => spanClaimed(claimed, at[i], at[i] + toks[i].length);
   let armed = true;
   let afterHour = false;                       // the last word was "hour"
   for (let i = 0; i < toks.length; i++) {
@@ -3260,6 +3440,9 @@ function wordsToDigits(text) {
     // "and one" opens a label. Only an hour carries the arming across it.
     if (afterHour && w === 'and') { out.push(toks[i]); afterHour = false; continue; }
     afterHour = false;
+    // A token the sport has claimed is a label word: it neither converts nor
+    // keeps the converter armed for whatever follows it.
+    if (owned(i)) { armed = false; out.push(toks[i]); continue; }
     if (armed && /^\d+:?\d*$/.test(toks[i])) { out.push(toks[i]); continue; }
     if (armed && Object.prototype.hasOwnProperty.call(NUM_WORDS, w)) {
       let v = NUM_WORDS[w];
@@ -3433,15 +3616,17 @@ function parseSegment(secs, tail, raw) {
     }
   }
 
-  // Earliest duration word wins, so a label may still contain one later on
-  let keyword = null, at = -1;
-  for (const d of DURATION_WORDS) {
-    const m = rest.match(d.re);
-    if (m && (at === -1 || m.index < at)) { at = m.index; keyword = d; }
+  // Earliest duration word wins, so a label may still contain one later on.
+  // A word the sport has claimed is skipped outright: "long two" keeps its
+  // "long", and the length falls through to the ladder like any other clip.
+  const claimed = protectedSpans(rest);
+  let keyword = null, at = -1, hit = null;
+  for (const d of durationWords()) {
+    const m = firstUnclaimed(rest, d.re, claimed);
+    if (m && (at === -1 || m.index < at)) { at = m.index; keyword = d; hit = m; }
   }
-  if (keyword) {
-    const m = rest.match(keyword.re);
-    rest = (rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length))
+  if (hit) {
+    rest = (rest.slice(0, hit.index) + ' ' + rest.slice(hit.index + hit[0].length))
       .replace(/\s+/g, ' ').trim();
   }
 
@@ -3801,7 +3986,8 @@ function renderSettings() {
   const smart = document.getElementById('set-smart-dur').checked;
   document.getElementById('set-dur-help').textContent = smart
     ? 'A clip you don\'t give a length gets the length you usually give clips like it in that playlist. Say a start and an end, or "for 20 seconds", to set one outright.'
-    : 'Every clip you don\'t give a length gets 5 seconds, and only the words short, medium, long and possession change that.';
+    : 'Every clip you don\'t give a length gets ' + DEFAULT_DURATION.secs + ' seconds, and only the words '
+      + durationWords().map(d => d.name).join(', ') + ' change that.';
   document.getElementById('set-dur-model').style.display = smart ? 'block' : 'none';
   document.getElementById('set-dur-reset').style.display = smart ? 'inline-flex' : 'none';
 }
@@ -3904,7 +4090,7 @@ async function testAiEndpoint() {
   btn.disabled = true;
   out.className = 'set-help'; out.textContent = 'Testing…';
   try {
-    const clips = await callParser('15:34 long pick and roll', probe);
+    const clips = await callParser(activeProfile().probeTranscript, probe);
     out.className = 'set-help ok';
     out.textContent = 'Working — parsed ' + clips.length + ' clip' + (clips.length === 1 ? '' : 's') + '.';
   } catch (err) {
@@ -3915,13 +4101,28 @@ async function testAiEndpoint() {
 }
 
 /* ── AI parsing ──────────────────────────────────────────────────────────── */
+/* "a", "a and b", "a, b and c" — the prompt is prose and reads like it. */
+function andList(items) {
+  if (!items.length) return '';
+  if (items.length === 1) return items[0];
+  return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+}
+
 function buildParserPrompt(transcript) {
   const game = filmGame();
   const names = game ? gamePlaylists(game.id).map(pl => pl.name) : [];
+  // The sport is the team's, so the model is told what it is listening to and
+  // which wording it must not mistake for a length.
+  const sport = activeProfile();
+  // Shortest first reads as a scale; the array itself is ordered for matching
+  const byLength = sport.durationWords.slice().sort((a, b) => a.secs - b.secs);
+  const lengths = byLength.map(d => d.name + '=' + d.secs + 's').join(', ');
+  const lengthList = byLength.map(d => d.name).join(', ');
+  const guarded = andList((sport.protectedPhrases || []).map(w => '"' + w + '"'));
   let dur = 0;
   try { dur = player && player.getDuration ? player.getDuration() : 0; } catch (e) {}
   return [
-    'You turn a basketball coach\'s spoken clip notes into JSON.',
+    'You turn a ' + sport.sportNoun + ' coach\'s spoken clip notes into JSON.',
     '',
     'The clip starts with a timestamp on the film, then optionally a length word,',
     'a playlist, and a label. There is exactly one clip per transcript — if a',
@@ -3936,7 +4137,7 @@ function buildParserPrompt(transcript) {
     'forty one seconds" is 3641, "1 hour 2 minutes" is 3720, and a bare number',
     'after the hour is still minutes ("1 hour 41" is 1:41:00, 6060).',
     '',
-    'Lengths: short=5s, medium=10s, long=15s, possession=24s. Only report one of',
+    'Lengths: ' + lengths + '. Only report one of',
     'these when the coach actually said the word — otherwise leave it null and',
     'Angl works the length out from how this coach usually clips.',
     'An explicit length wins: "for 20 seconds" means a 20-second clip, and so',
@@ -3945,16 +4146,17 @@ function buildParserPrompt(transcript) {
     names.length ? ('Playlists available: ' + names.join(', ') + '.') : 'No playlists available.',
     '',
     'Reply with JSON only, no prose or code fences:',
-    '{"clips":[{"seconds":3641,"duration":null,"label":"Pick and roll","playlist":"Offence"}]}',
+    '{"clips":[{"seconds":3641,"duration":null,"label":"' + sport.promptExample.label
+      + '","playlist":"' + sport.promptExample.playlist + '"}]}',
     '',
     '- seconds: integer, where the clip starts in the film',
-    '- duration: exactly one of short, medium, long, possession, or null when',
+    '- duration: exactly one of ' + lengthList + ', or null when',
     '  no length word was spoken',
     '- seconds_long: optional integer, only when a length was stated outright —',
     '  either "for N seconds" or the span of a stated start-to-end range',
     '- label: what was described; "" when nothing was said beyond the timestamp',
     '- playlist: exactly one of the listed playlists, or null',
-    '- keep basketball wording intact ("long two", "and one" are labels, not lengths)',
+    guarded ? ('- keep ' + sport.sportNoun + ' wording intact (' + guarded + ' are labels, not lengths)') : '',
     '- if no timestamp was spoken, return {"clips":[]}',
     '',
     'Transcript:',
@@ -4021,7 +4223,7 @@ function toPendingClips(raw) {
   const game = filmGame();
   const pls = game ? gamePlaylists(game.id) : [];
   const byName = {};
-  DURATION_WORDS.forEach(d => { byName[d.name] = d; });
+  durationWords().forEach(d => { byName[d.name] = d; });
 
   let filmLen = 0;
   try { filmLen = player && player.getDuration ? player.getDuration() : 0; } catch (e) {}
@@ -4136,7 +4338,7 @@ function syncPendingFromCard(pc) {
   if (!(pc.end > pc.start)) pc.end = pc.start + heldLength;
 
   pc.durationSecs = Math.round((pc.end - pc.start) * 10) / 10;
-  const named = DURATION_WORDS.find(d => d.secs === pc.durationSecs);
+  const named = durationWords().find(d => d.secs === pc.durationSecs);
   pc.durationName = named ? named.name : 'custom';
   // Moved off what was proposed: the card now says so, and confirming it
   // teaches the model the corrected length
