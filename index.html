@@ -2629,10 +2629,15 @@ function renderDashboard() {
 
 /* ── Voice dictation ─────────────────────────────────────────────────────── */
 /*
- * Hold the hotkey, call out as many clips as you like in one go, release. The
- * whole session is transcribed first and parsed at the end, rather than guessed
- * at at every pause — speech engines break on breath, not on meaning, so a clip
+ * Hold the hotkey, describe one clip, release. The whole session is
+ * transcribed first and parsed at the end, rather than guessed at on every
+ * pause — speech engines break on breath, not on meaning, so a description
  * split across two segments would otherwise be lost.
+ *
+ * One hold is one clip. Naming a second timestamp mid-sentence doesn't split
+ * the session in two — everything after the first timestamp is the label,
+ * however many numbers it contains. Queue more by holding again; the confirm
+ * list below takes any number of those.
  *
  * Nothing is saved until confirmed, and confirming borrows the manual form so
  * buffers, validation and playlist fallback stay identical by construction.
@@ -2772,9 +2777,10 @@ function wordsToDigits(text) {
   return out.join(' ');
 }
 
-/* Every timestamp in the transcript, in order. Each one opens a new clip, which
- * is what lets a single held-down session carry a dozen of them. */
-function findTimestamps(text) {
+/* The first timestamp in the transcript. A dictation session is always one
+ * clip, so anything spoken after it — including what looks like a second
+ * timestamp — is left for the label to keep. */
+function findTimestamp(text) {
   // Longest form first: each is tried in turn at the same spot, so "1 hour 2
   // minutes" must get its chance before the plain "2 minutes" form does.
   const forms = [
@@ -2797,9 +2803,7 @@ function findTimestamps(text) {
     { re: new RegExp(LEAD_SRC + '(\\d{1,3})\\s*(?:minutes?|mins?)\\b', 'iy'), kind: 'm' },
     { re: new RegExp(LEAD_SRC + '(\\d{1,3})\\s*(?:seconds?|secs?)\\b',  'iy'), kind: 's' },
     // Colons often come through as gaps. Both tail groups must be a full pair,
-    // so "15 34 3 pointer" stays 15:34 with a label rather than 15:34:03, and
-    // no film runs ten hours, so a single-digit hour keeps two timestamps
-    // called back to back ("15 34 20 30") readable as two clips.
+    // so "15 34 3 pointer" stays 15:34 with a label rather than 15:34:03.
     { re: new RegExp(LEAD_SRC + '(\\d)\\s+(\\d{2})\\s+(\\d{2})(?!\\d)', 'iy'), kind: 'h mm ss' },
     { re: new RegExp(LEAD_SRC + '(\\d{1,2})\\s+(\\d{1,2})(?!\\d)',         'iy'), kind: 'mm:ss' },
     // Chrome often renders a spoken "fifteen thirty four" as 1534, and an
@@ -2808,7 +2812,6 @@ function findTimestamps(text) {
     { re: new RegExp('(\\b(?:at|minute|minutes|min|mark|time|timestamp|clip)\\b\\s+)(\\d{1,3})(?!\\d)', 'iy'), kind: 'm' },
     { re: new RegExp('^(\\d{1,3})(?!\\d)', 'iy'), kind: 'm', onlyAtStart: true },
   ];
-  const out = [];
   for (let i = 0; i < text.length; i++) {
     if (i > 0 && !/\s/.test(text[i - 1])) continue;      // word starts only
     // "for 20 seconds" states a clip's length, not where the next one starts
@@ -2856,12 +2859,13 @@ function findTimestamps(text) {
       hit = { index: i, length: m[0].length, secs };
       break;
     }
+    if (hit) return hit;
     // Seconds out of range means it was misheard. Skip the whole thing rather
-    // than salvage the minutes — "15 74" is not a confident 15:00.
-    if (!hit && spoiled) { i += spoiled[0].length - 1; continue; }
-    if (hit) { out.push(hit); i = hit.index + hit.length - 1; }
+    // than salvage the minutes — "15 74" is not a confident 15:00 — and keep
+    // scanning for a real timestamp later in the transcript.
+    if (spoiled) { i += spoiled[0].length - 1; continue; }
   }
-  return out;
+  return null;
 }
 
 /* Turn one timestamp plus the words that follow it into a clip. */
@@ -2942,7 +2946,9 @@ function extractPlaylist(text, pls) {
   return { pl: null, rest: text };
 }
 
-/* A whole dictation session → every clip in it. */
+/* A whole dictation session → one clip. Only the first timestamp counts;
+ * `clips` still comes back as an array (0 or 1 long) since that is the shape
+ * the confirm queue and the AI-parser path both expect. */
 function parseDictationBatch(raw) {
   const norm = String(raw)
     .replace(/[^\w:'\s]/g, ' ')     // keep colons for 15:34 and apostrophes for labels
@@ -2955,19 +2961,16 @@ function parseDictationBatch(raw) {
   // number was spoken in front of a unit, which a first pass would read as the
   // "forty one" of "one hour forty one", throwing the hour itself away.
   let work = SPOKEN_TIME.test(norm) ? wordsToDigits(norm) : norm;
-  let stamps = findTimestamps(work);
-  if (!stamps.length) {
+  let stamp = findTimestamp(work);
+  if (!stamp) {
     work = wordsToDigits(norm);
-    stamps = findTimestamps(work);
+    stamp = findTimestamp(work);
   }
-  if (!stamps.length) return { clips: [], reason: 'No timestamp in that', raw };
+  if (!stamp) return { clips: [], reason: 'No timestamp in that', raw };
 
-  const clips = stamps.map((st, k) => {
-    const from = st.index + st.length;
-    const to = k + 1 < stamps.length ? stamps[k + 1].index : work.length;
-    return parseSegment(st.secs, work.slice(from, to), work.slice(st.index, to));
-  });
-  return { clips, reason: '', raw };
+  const tail = work.slice(stamp.index + stamp.length);
+  const clip = parseSegment(stamp.secs, tail, work.slice(stamp.index));
+  return { clips: [clip], reason: '', raw };
 }
 
 /* Single-utterance convenience used by the tests. */
@@ -3240,8 +3243,10 @@ function buildParserPrompt(transcript) {
   return [
     'You turn a basketball coach\'s spoken clip notes into JSON.',
     '',
-    'Each clip starts with a timestamp on the film, then optionally a length word,',
-    'a playlist, and a label. One utterance may contain several clips.',
+    'The clip starts with a timestamp on the film, then optionally a length word,',
+    'a playlist, and a label. There is exactly one clip per transcript — if a',
+    'second timestamp-shaped number turns up later, it is part of the label,',
+    'not a second clip. Only ever return one entry in "clips".',
     '',
     'Spoken units are decisive: "12 seconds" is 12 seconds in (0:12), NOT 12:00.',
     '"12 minutes" is 12:00. "1 minute 30" is 1:30. "15:34" is 15 minutes 34 seconds.',
@@ -3318,7 +3323,10 @@ async function callParser(transcript, cfg) {
     ? (data.content || []).map(c => c.text || '').join('')
     : (((data.choices || [])[0] || {}).message || {}).content || '';
   const parsed = extractJson(text);
-  return toPendingClips(parsed && parsed.clips);
+  // One clip per session regardless of parser — a model that ignores the
+  // prompt and returns several must not reopen multi-clipping on its own.
+  const clips = (parsed && parsed.clips) || [];
+  return toPendingClips(clips.slice(0, 1));
 }
 
 /* Model output → the same shape the built-in parser produces, so the confirm
@@ -3655,7 +3663,7 @@ function renderDictation() {
   } else if (aiParsing) {
     body = '<span class="idle">Parsing the transcript…</span>';
   } else if (micOn) {
-    body = '<span class="idle">Call out as many clips as you like — they are all parsed when you stop.</span>';
+    body = '<span class="idle">Describe this clip, then release — it is parsed when you stop.</span>';
   } else {
     body = '<span class="idle">Confirm or discard what is waiting.</span>';
   }
