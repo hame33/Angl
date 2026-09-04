@@ -287,3 +287,43 @@ test('the note says where the length came from', () => {
   assert.equal(app.durationNote({ secs: 12, source: 'learned', n: 23, category: 'transition' }),
     '12s, learned from 23 clips in transition');
 });
+
+/* ── Backfill ─────────────────────────────────────────────────────────────── */
+
+test('a library that predates the model is learned in one pass', () => {
+  const app = freshApp();
+  const pls = withPlaylists(app, ['Transition']);
+  app.clips = Array.from({ length: 10 }, (_, i) => ({
+    id: 'c' + i, label: 'transition break', playlistId: pls[0].id,
+    effStart: 0, effEnd: 16, bufBefore: 2, bufAfter: 2,
+  }));
+  assert.equal(app.resolveDuration({ label: 'break', playlistName: 'Transition' }).source, 'default');
+  app.backfillDurationModel();
+  const res = app.resolveDuration({ label: 'break', playlistName: 'Transition' });
+  assert.equal(res.secs, 12, 'buffers come off the backfilled clips too');
+  assert.equal(app.durationModel.categories.transition.n, 10);
+  assert.equal(app.durationModel.backfilled, true);
+});
+
+test('the backfill flag survives a round trip through storage', () => {
+  const app = freshApp();
+  app.durationModel.backfilled = true;
+  const again = app.normaliseDurationModel(JSON.parse(JSON.stringify(app.durationModel)));
+  assert.equal(again.backfilled, true, 'a second load must not learn the library twice');
+});
+
+test('forgetting the history keeps it forgotten', () => {
+  const app = freshApp();
+  const pls = withPlaylists(app, ['Transition']);
+  app.clips = Array.from({ length: 10 }, (_, i) => ({
+    id: 'c' + i, label: 'break', playlistId: pls[0].id,
+    effStart: 0, effEnd: 12, bufBefore: 0, bufAfter: 0,
+  }));
+  app.backfillDurationModel();
+  assert.equal(app.durationModel.global.n, 10);
+
+  app.answerConfirm = true;          // say yes to "forget everything?"
+  app.resetDurationModel();
+  assert.equal(app.durationModel.global.n, 0, 'the history is gone');
+  assert.equal(app.durationModel.backfilled, true, 'and a reload must not put it back');
+});

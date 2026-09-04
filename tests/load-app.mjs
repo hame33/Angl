@@ -53,6 +53,10 @@ globalThis.__app = {
   set playlists(v) { playlists = v; },
   get games() { return games; },
   set games(v) { games = v; },
+  get clips() { return clips; },
+  set clips(v) { clips = v; },
+  backfillDurationModel, resetDurationModel, loadFromStorage,
+  set answerConfirm(v) { globalThis.answerConfirm = v; },
   DURATION_WORDS, DEFAULT_DURATION, DUR_SAMPLE_CAP,
 };
 `;
@@ -85,7 +89,9 @@ export function loadApp() {
     Blob: class {},
     FileReader: class {},
     AbortController: globalThis.AbortController,
-    confirm: () => false,
+    // Tests that drive a confirm-guarded action set sandbox.answerConfirm
+    confirm: () => sandbox.answerConfirm === true,
+    answerConfirm: false,
     alert() {},
   };
   sandbox.window = sandbox;

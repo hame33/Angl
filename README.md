@@ -190,8 +190,11 @@ enough history for:
 3. what you usually clip anywhere
 4. five seconds
 
-It learns from clips you saved, and counts a length you corrected twice as
-heavily as one you just accepted — so the fastest way to teach it is to nudge a
+The clips you have already cut count. The first time you open this version it
+reads your whole library in one pass, so it has an opinion straight away rather
+than making you cut another twenty first. After that it learns from each clip as
+you save it, and counts a length you corrected twice as heavily as one you just
+accepted — so the fastest way to teach it is to nudge a
 wrong guess with the **−** and **+** buttons before confirming. Nothing is
 hardcoded to any sport: it only ever learns your playlist names and your own
 words, so netball and football coaches get the same thing with no code change.
@@ -201,7 +204,8 @@ All of it stays in this browser, and it travels with your Export file.
 **To turn it off:** Settings → Clip durations → untick "Work out clip lengths
 from how I clip". Every clip you don't give a length then gets five seconds, the
 way it used to. The same panel shows what Angl currently thinks each playlist is
-worth, and has a button to make it forget and start again.
+worth, and has a button to make it forget and start again — which forgets your
+back catalogue too, and stays forgotten.
 
 ## Status
 

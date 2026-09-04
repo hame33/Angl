@@ -1292,6 +1292,8 @@ function loadFromStorage() {
     const rawModel = localStorage.getItem(DURATION_MODEL_KEY);
     durationModel = rawModel ? normaliseDurationModel(JSON.parse(rawModel)) : emptyDurationModel();
   } catch (e) { durationModel = emptyDurationModel(); }
+  // First run on a library that predates the model: learn what is already here
+  if (!durationModel.backfilled) backfillDurationModel();
 
   // Saves made before games existed have flat playlists and no gameId
   if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
@@ -2054,9 +2056,15 @@ function importJSON(event) {
       if (!games.length) migrateToGames(null);
       // A version 2 export has no teams — park every game under one
       migrateToTeams();
-      // A version 3 export has no model. It says nothing about clip lengths
-      // either way, so leave whatever this machine has already learned alone.
-      if (data.durationModel) durationModel = normaliseDurationModel(data.durationModel);
+      // The model describes the library it sits on, and the library has just
+      // been replaced wholesale. Take the file's model where it brought one;
+      // a version 3 export brought none, so learn the clips it did bring.
+      if (data.durationModel) {
+        durationModel = normaliseDurationModel(data.durationModel);
+      } else {
+        durationModel = emptyDurationModel();
+        backfillDurationModel();
+      }
       activeTeam = teams.length ? teams[0].id : null;
       activeGame = games.length ? games[0].id : null;
       loadedGameId = null;
@@ -2767,7 +2775,12 @@ const DUR_STOPWORDS = new Set([
 ]);
 
 function emptyDurationModel() {
-  return { version: DUR_MODEL_VERSION, global: { n: 0, durations: [] }, categories: {}, tokens: {} };
+  return {
+    version: DUR_MODEL_VERSION,
+    // Whether the clips already in the library have been learned once
+    backfilled: false,
+    global: { n: 0, durations: [] }, categories: {}, tokens: {},
+  };
 }
 
 let durationModel = emptyDurationModel();
@@ -2786,6 +2799,7 @@ function normaliseDurationModel(raw) {
     const n = Math.max(durations.length, Math.round(Number(b && b.n)) || 0);
     return { n, durations };
   };
+  out.backfilled = !!raw.backfilled;
   out.global = bucket(raw.global);
   const cats = (raw.categories && typeof raw.categories === 'object') ? raw.categories : {};
   const toks = (raw.tokens     && typeof raw.tokens     === 'object') ? raw.tokens     : {};
@@ -2873,18 +2887,35 @@ function clipLearnLength(c) {
  * far more about what they wanted than one they simply let through.
  */
 function recordDurationSample(clip, opts) {
+  opts = opts || {};
   if (!clip) return;
   const secs = clipLearnLength(clip);
   if (!isFinite(secs) || secs <= 0) return;
   const pl = playlists.find(p => p.id === clip.playlistId);
   const cat = durCategoryKey(pl ? pl.name : '');
   const tokens = durTokens(clip.label);
-  const times = (opts && opts.strong) ? 2 : 1;
+  const times = opts.strong ? 2 : 1;
   for (let i = 0; i < times; i++) {
     durPush(durationModel.global, secs);
     if (cat) durPush(durBucket(durationModel.categories, cat), secs);
     tokens.forEach(t => durPush(durBucket(durationModel.tokens, t), secs));
   }
+  // A bulk caller writes once at the end rather than once per clip
+  if (!opts.defer) saveDurationModel();
+}
+
+/*
+ * A coach arriving at this feature already has a season of clips, and every
+ * one of them is evidence. Learn them in one pass rather than making them cut
+ * another twenty before the app has an opinion — oldest first, since `clips`
+ * is in the order they were added and the rolling cap keeps the tail.
+ *
+ * The flag is what makes it happen once. Reset sets it too: a coach who asks
+ * Angl to forget its history must not find it all back on the next reload.
+ */
+function backfillDurationModel() {
+  durationModel.backfilled = true;
+  clips.forEach(c => recordDurationSample(c, { defer: true }));
   saveDurationModel();
 }
 
@@ -3602,6 +3633,7 @@ function resetDurationModel() {
   if (!confirm('Forget everything Angl has learned about your clip lengths?\n\n' +
                'Your clips are not touched — only the lengths it works out for new ones.')) return;
   durationModel = emptyDurationModel();
+  durationModel.backfilled = true;   // don't re-learn the library on next load
   saveDurationModel();
   renderDurationModel();
   toast('Clip length history cleared');
