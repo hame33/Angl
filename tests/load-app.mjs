@@ -69,6 +69,7 @@ globalThis.__app = {
   set clips(v) { clips = v; },
   backfillDurationModel, resetDurationModel, loadFromStorage,
   logDictationMiss, logDictationConfirm, logDictationDiscard,
+  dictationMisses, missLine, missWhen, DICT_MISS_VIEW_CAP, DICT_MISS_OUTCOMES,
   loadDictationLog, saveDictationLog, dictationLogBytes, clearDictationLog,
   pendingClip, saveToStorage,
   get dictationLog() { return dictationLog; },

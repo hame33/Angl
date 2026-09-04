@@ -219,15 +219,27 @@ Alongside the clips, Angl keeps a record of each dictation session: what you
 said, what it made of it, and what you actually kept — including the sessions
 where it found nothing at all, and the ones you threw away.
 
-Nothing reads that log today. It exists because the useful part of it cannot be
-recovered later: a saved clip still carries its length, which is why clip
-lengths could be learned from your back catalogue, but a transcript that was not
-written down when it was spoken is simply gone. The pairing of a parse with the
-correction you made to it is what a future version would need to learn to hear
-you better, and it only exists at the moment you make it.
+It exists because the useful part of it cannot be recovered later: a saved clip
+still carries its length, which is why clip lengths could be learned from your
+back catalogue, but a transcript that was not written down when it was spoken is
+simply gone. The pairing of a parse with the correction you made to it is what a
+future version would need to learn to hear you better, and it only exists at the
+moment you make it.
+
+**Reading your own misses.** Settings → Dictation log → *Show recent misses*
+lists the sessions the parser got wrong, newest first: what it heard, what it
+made of that, and what you actually kept — with the parts you changed picked out,
+so a pattern is visible at a glance rather than needing a careful read. The three
+kinds of wrong are all there: it found no timestamp at all, you corrected it
+before saving, or you threw the clip away. Sessions it got right are not listed,
+because there is nothing to see in them.
+
+Nothing learns from any of this. It is there so you can see what the parser
+actually needs before anyone writes the code that acts on it, and it changes
+nothing about how your clips are parsed today.
 
 It stays on this machine, it travels with your Export, and it is never sent
-anywhere. Settings → Dictation log shows how big it has got and has a button to
+anywhere. The same panel shows how big the log has got and has a button to
 clear it. Nothing is dropped automatically, so Angl will tell you when the log
 gets large enough to be worth exporting — it shares storage with your clips, and
 your clips come first.
