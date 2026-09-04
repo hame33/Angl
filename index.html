@@ -2783,6 +2783,12 @@ function findTimestamps(text) {
     // Spoken hours — a sports film is often longer than one
     { re: new RegExp(LEAD_SRC + HOUR_SRC + AND_SRC + '(\\d{1,2})\\s*(?:minutes?|mins?)\\b' + AND_SRC + '(?:(\\d{1,2})\\s*(?:seconds?|secs?)?\\b)?', 'iy'), kind: 'h m s' },
     { re: new RegExp(LEAD_SRC + HOUR_SRC + AND_SRC + '(\\d{1,2})\\s*(?:seconds?|secs?)\\b', 'iy'), kind: 'h s' },
+    // A stopwatch read back with no unit words at all: "an hour, 26, 22" is
+    // 1:26:22, not 1:26:00 with "22" stranded as the label. Both trailing
+    // numbers need the full two digits, same reasoning as the digit-only
+    // h-mm-ss form below — a single trailing digit is someone's label
+    // ("an hour 5, 3-pointer"), not a seconds count.
+    { re: new RegExp(LEAD_SRC + HOUR_SRC + AND_SRC + '(\\d{2})\\s+(\\d{2})(?!\\d)', 'iy'), kind: 'h m s' },
     // No unit on the trailing number, so it follows the bare-number rule below
     { re: new RegExp(LEAD_SRC + HOUR_SRC + AND_SRC + '(\\d{1,2})(?!\\d)', 'iy'), kind: 'h m' },
     { re: new RegExp(LEAD_SRC + HOUR_SRC, 'iy'), kind: 'h' },
