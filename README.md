@@ -234,14 +234,23 @@ and it is early.
 Basketball shows through in a couple of places — mainly the dictation parser, which
 knows that "long two" and "and one" are labels rather than numbers. The data model
 itself is sport-agnostic, and making the rest follow is the main thing on the list.
-If you coach something else and hit a basketball assumption, please open an issue;
-that is the most useful contribution right now.
+If you coach something else and hit a basketball assumption, please open an issue —
+there is a template for exactly that, [A sport assumption I hit][sport-issue], and
+it is the most useful contribution right now.
 
 ## Contributing
 
 Issues and pull requests are welcome. The project is deliberately small: one HTML
 file, one Python script, no build step and no framework. Please keep it that way —
 a change that adds a toolchain needs to earn it.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the details: the no-toolchain rule, the
+`filmroom_` storage keys that must never be renamed, and what to run before
+touching the parser.
+
+Coach a different sport and hit a basketball assumption? That has its own issue
+template — [A sport assumption I hit][sport-issue] — and you do not need to know
+where in the code it lives to file one.
 
 There are tests for the dictation parser and the clip-length model. They lift the
 `<script>` out of `index.html` and run it in a Node sandbox, so there is still
@@ -257,3 +266,5 @@ accordingly. If you touch it, run these first.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+[sport-issue]: .github/ISSUE_TEMPLATE/sport-assumption.md
