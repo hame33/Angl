@@ -159,6 +159,50 @@ A bare number with no unit means minutes wherever it appears, hours included, so
 "one hour forty one" is 1:41:00. To land on 1:00:41 either say the unit — "one
 hour forty one seconds" — or read the clock back as "one oh oh forty one".
 
+### How long a clip is
+
+You never have to say a length. If you don't, Angl works one out from how you
+have clipped before — and shows you what it picked, and why, on the confirm card
+before you accept it. A card reading "12s, learned from 23 clips in transition"
+is telling you it has seen you cut a lot of transition clips and they mostly run
+about twelve seconds.
+
+When you do want to say a length, say it, and nothing is inferred:
+
+- "at 15:34 **to** 15:52" — a start and an end. `until`, `through`, `til`, `dash`
+  and `minus` all work the same way, and both times are read exactly like any
+  other timestamp: "an hour 26 to an hour 26 30" is a thirty-second clip.
+- "at 15:34 **for 20 seconds**", or just "for 20"
+- "at 15:34 **long** pull up" — `short` is 5s, `medium` 10s, `long` 15s and
+  `possession` 24s
+
+A "to" only opens a range when a time follows it straight away, so "at 15:34
+Smith to Jones give and go" is still one clip with a long label. And a range that
+comes out backwards, or longer than five minutes, is ignored with a note on the
+card rather than used.
+
+If nothing was said, Angl works down this list and stops at the first rung it has
+enough history for:
+
+1. what you usually clip in **that playlist**, adjusted for the words you used —
+   if your full court press clips run long, "full court press" gets a longer clip
+2. what you usually clip in that playlist
+3. what you usually clip anywhere
+4. five seconds
+
+It learns from clips you saved, and counts a length you corrected twice as
+heavily as one you just accepted — so the fastest way to teach it is to nudge a
+wrong guess with the **−** and **+** buttons before confirming. Nothing is
+hardcoded to any sport: it only ever learns your playlist names and your own
+words, so netball and football coaches get the same thing with no code change.
+
+All of it stays in this browser, and it travels with your Export file.
+
+**To turn it off:** Settings → Clip durations → untick "Work out clip lengths
+from how I clip". Every clip you don't give a length then gets five seconds, the
+way it used to. The same panel shows what Angl currently thinks each playlist is
+worth, and has a button to make it forget and start again.
+
 ## Status
 
 Angl is built by a basketball coach and used every week on real game film. It works,
@@ -175,6 +219,17 @@ that is the most useful contribution right now.
 Issues and pull requests are welcome. The project is deliberately small: one HTML
 file, one Python script, no build step and no framework. Please keep it that way —
 a change that adds a toolchain needs to earn it.
+
+There are tests for the dictation parser and the clip-length model. They lift the
+`<script>` out of `index.html` and run it in a Node sandbox, so there is still
+nothing to install:
+
+```
+node --test 'tests/*.test.mjs'
+```
+
+The timestamp parser is the delicate part of this codebase and it is commented
+accordingly. If you touch it, run these first.
 
 ## License
 

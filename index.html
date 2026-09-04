@@ -707,6 +707,18 @@
   .set-help.warn { color: #d9a03a; }
   .set-help.ok { color: var(--success); }
   .set-help.bad { color: var(--danger); }
+  .set-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); cursor: pointer; }
+  .set-check input { accent-color: var(--accent); cursor: pointer; }
+  .dur-model { margin-top: 8px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .dur-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 4px 8px; font-size: 11px; color: var(--text2);
+    border-top: 1px solid var(--border);
+  }
+  .dur-row:first-child { border-top: none; }
+  .dur-row.total { color: var(--text3); background: var(--bg3); }
+  .dur-model .set-help { padding: 6px 8px; margin: 0; }
+  #set-dur-reset { margin-top: 8px; font-size: 11px; padding: 4px 8px; }
 
   /* ── Voice dictation ── */
   .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -810,6 +822,8 @@
     margin-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .pending-warn { font-size: 10px; color: #d9a03a; margin-bottom: 6px; }
+  /* Never make the coach guess why a length was chosen — say it on the card */
+  .pending-why { font-size: 10px; color: var(--text3); margin: -2px 0 6px; }
   .pending-btns { display: flex; gap: 6px; }
   .pending-btns .btn { flex: 1; font-size: 11px; padding: 4px 8px; }
   .pending-btns .btn.playing { border-color: var(--accent-border); color: var(--accent); background: var(--accent-bg); }
@@ -1095,6 +1109,17 @@
       <div class="set-help" id="set-parser-help"></div>
     </div>
 
+    <div class="set-row">
+      <div class="set-label">Clip durations</div>
+      <label class="set-check">
+        <input type="checkbox" id="set-smart-dur" onchange="renderSettings()" />
+        <span>Work out clip lengths from how I clip</span>
+      </label>
+      <div class="set-help" id="set-dur-help"></div>
+      <div class="dur-model" id="set-dur-model"></div>
+      <button class="btn" id="set-dur-reset" onclick="resetDurationModel()">Forget what's been learned</button>
+    </div>
+
     <div id="set-ai-fields">
       <div class="set-row">
         <div class="set-label">Provider</div>
@@ -1211,6 +1236,7 @@ function saveToStorage() {
     if (activeGame) localStorage.setItem('filmroom_active_game', activeGame);
     localStorage.setItem('filmroom_active_team', activeTeam || '');
     if (currentVideoId) localStorage.setItem('filmroom_video', currentVideoId);
+    localStorage.setItem(DURATION_MODEL_KEY, JSON.stringify(durationModel));
   } catch(e) {
     // A failed save looks exactly like a successful one: the clips are still on
     // screen because they're in memory, and they're gone on the next reload.
@@ -1260,6 +1286,13 @@ function loadFromStorage() {
   if (damaged.length) {
     toast('Could not read ' + damaged.join(', ') + ' — kept the rest, saved the original as *_corrupt');
   }
+  // What Angl has learned about clip lengths. Rebuilt on the way in rather
+  // than trusted, so a corrupt model costs the history and nothing else.
+  try {
+    const rawModel = localStorage.getItem(DURATION_MODEL_KEY);
+    durationModel = rawModel ? normaliseDurationModel(JSON.parse(rawModel)) : emptyDurationModel();
+  } catch (e) { durationModel = emptyDurationModel(); }
+
   // Saves made before games existed have flat playlists and no gameId
   if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
   // Saves made before teams existed have games with no teamId
@@ -1765,13 +1798,16 @@ function addClip() {
   const startStr = document.getElementById('start-time').value;
   const endStr = document.getElementById('end-time').value;
   if (!currentVideoId) { toast('Load a film first — clips need a source video'); return; }
-  if (!startStr || !endStr) { toast('Enter start and end times'); return; }
+  if (!startStr) { toast('Enter a start time'); return; }
   const start = parseTime(startStr);
-  const end = parseTime(endStr);
-  if (end <= start) { toast('End must be after start'); return; }
   const bufBefore = parseFloat(document.getElementById('buf-before').value);
   const bufAfter = parseFloat(document.getElementById('buf-after').value);
   const label = document.getElementById('clip-label').value.trim() || ('Clip ' + (clips.length + 1));
+  // An end left blank is resolved exactly the way a dictated clip's is
+  const end = endStr
+    ? parseTime(endStr)
+    : start + resolveDuration({ label, playlistName: selectedPlaylistName() }).secs;
+  if (end <= start) { toast('End must be after start'); return; }
   const game = filmGame();
   if (!game) { toast('This film has no game — open one from the dashboard'); return; }
   let playlistId = document.getElementById('clip-playlist').value;
@@ -1784,6 +1820,7 @@ function addClip() {
   }
   const clip = { id: uid(), label, videoId: currentVideoId, gameId: game.id, start, end, bufBefore, bufAfter, effStart: Math.max(0, start - bufBefore), effEnd: end + bufAfter, playlistId };
   clips.push(clip);
+  recordDurationSample(clip);
   document.getElementById('start-time').value = '';
   document.getElementById('end-time').value = '';
   document.getElementById('clip-label').value = '';
@@ -1976,8 +2013,9 @@ function renderClips() {
 
 /* ── Import / Export ── */
 function exportJSON() {
-  // version 3 adds teams; clips keep videoId so old downloaders still work
-  const data = { version: 3, teams, games, playlists, clips };
+  // version 4 adds the clip-length model; clips keep videoId so old downloaders
+  // still work, and an older reader simply ignores the extra key
+  const data = { version: 4, teams, games, playlists, clips, durationModel };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2016,6 +2054,9 @@ function importJSON(event) {
       if (!games.length) migrateToGames(null);
       // A version 2 export has no teams — park every game under one
       migrateToTeams();
+      // A version 3 export has no model. It says nothing about clip lengths
+      // either way, so leave whatever this machine has already learned alone.
+      if (data.durationModel) durationModel = normaliseDurationModel(data.durationModel);
       activeTeam = teams.length ? teams[0].id : null;
       activeGame = games.length ? games[0].id : null;
       loadedGameId = null;
@@ -2693,6 +2734,262 @@ const DURATION_WORDS = [
   { re: /\blong\b/i,   secs: 15, name: 'long'   },
 ];
 
+/* ── Smart clip durations ────────────────────────────────────────────────────
+ * A dictated clip with no length word in it used to get a flat 5 seconds,
+ * which is almost never what was wanted. The fix is not a longer table of
+ * keywords — that would only ever fit one sport — but watching how long this
+ * coach's own clips actually end up, and answering from that.
+ *
+ * Everything stays here: one localStorage key, medians over the recent past,
+ * no network, and not one basketball word hardcoded. A netball coach's
+ * "centre pass" earns its own length the same way a "full court press" does.
+ */
+const DURATION_MODEL_KEY = 'filmroom_duration_model';
+const DUR_MODEL_VERSION  = 1;
+
+const DUR_SAMPLE_CAP  = 200;  // per bucket; the oldest fall off the front
+const DUR_MIN_SECS    = 2;    // nothing inferred may be shorter than this
+const DUR_MAX_SECS    = 90;   // …or longer
+const DUR_CATEGORY_N  = 5;    // samples before a category may answer
+const DUR_GLOBAL_N    = 12;   // samples before the overall median may answer
+const DUR_TOKEN_N     = 4;    // samples before one word may nudge the answer
+const DUR_TOKEN_PULL  = 0.6;  // and no word may move it further than this
+const DUR_MAX_RANGE   = 300;  // a dictated range longer than this was misheard
+
+/* Words that say nothing about how long a clip wants to be. Deliberately
+ * generic — anything sport-specific belongs in the model, not in here. */
+const DUR_STOPWORDS = new Set([
+  'a','an','and','the','to','of','on','in','at','for','with','by','from','into',
+  'off','out','up','down','over','under','then','than','that','this','it','its',
+  'is','was','were','be','been','get','got','go','goes','going','went','clip',
+  'again','just','very','really','good','nice','bad','our','their','his','her',
+  'they','them','we','us','he','she','you','i','no','not','yes','ok','okay',
+]);
+
+function emptyDurationModel() {
+  return { version: DUR_MODEL_VERSION, global: { n: 0, durations: [] }, categories: {}, tokens: {} };
+}
+
+let durationModel = emptyDurationModel();
+
+/* A model read back off disk, or out of somebody's export, can be any shape at
+ * all. Rebuild it rather than trust it — a bad model must never take dictation
+ * down with it. */
+function normaliseDurationModel(raw) {
+  const out = emptyDurationModel();
+  if (!raw || typeof raw !== 'object') return out;
+  const bucket = (b) => {
+    const durations = Array.isArray(b && b.durations)
+      ? b.durations.map(Number).filter(x => isFinite(x) && x > 0).slice(-DUR_SAMPLE_CAP)
+      : [];
+    // n is the lifetime count, so it survives the rolling cap
+    const n = Math.max(durations.length, Math.round(Number(b && b.n)) || 0);
+    return { n, durations };
+  };
+  out.global = bucket(raw.global);
+  const cats = (raw.categories && typeof raw.categories === 'object') ? raw.categories : {};
+  const toks = (raw.tokens     && typeof raw.tokens     === 'object') ? raw.tokens     : {};
+  Object.keys(cats).forEach(k => { const b = bucket(cats[k]); if (b.durations.length) out.categories[k] = b; });
+  Object.keys(toks).forEach(k => { const b = bucket(toks[k]); if (b.durations.length) out.tokens[k]     = b; });
+  return out;
+}
+
+function saveDurationModel() {
+  try { localStorage.setItem(DURATION_MODEL_KEY, JSON.stringify(durationModel)); } catch (e) {}
+}
+
+/* Medians throughout, never means: one 90-second mis-clip should not drag
+ * every future guess up with it. */
+function median(list) {
+  if (!list || !list.length) return 0;
+  const s = [...list].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+function durCategoryKey(name) {
+  return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/* Crude stemming on purpose. It has to give the same answer on every machine
+ * and cost nothing, and a real stemmer is a dependency this app doesn't have.
+ * "press", "presses" and "pressing" only need to land in the same bucket. */
+function durStem(w) {
+  if (w.length > 5 && w.endsWith('ing')) return w.slice(0, -3);
+  if (w.length > 4 && w.endsWith('ed'))  return w.slice(0, -2);
+  // "presses" is "press" plus es, not "presse" plus s
+  if (w.length > 4 && w.endsWith('es') && /(?:s|sh|ch|x|z)$/.test(w.slice(0, -2))) return w.slice(0, -2);
+  // "press" and "possession" are words, not plurals — never strip a double s
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+  return w;
+}
+
+/* The content words of a label, stopped and stemmed, each one once. */
+function durTokens(label) {
+  const seen = [];
+  String(label || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .forEach(w => {
+      if (w.length < 3 || /^\d+$/.test(w) || DUR_STOPWORDS.has(w)) return;
+      const stem = durStem(w);
+      if (stem.length >= 3 && seen.indexOf(stem) === -1) seen.push(stem);
+    });
+  return seen;
+}
+
+function durBucket(map, key) {
+  if (!map[key]) map[key] = { n: 0, durations: [] };
+  return map[key];
+}
+
+/* Recency matters more than history: keep the tail, drop from the front, so
+ * the model tracks how this season is being clipped rather than two ago. */
+function durPush(bucket, secs) {
+  bucket.durations.push(secs);
+  const over = bucket.durations.length - DUR_SAMPLE_CAP;
+  if (over > 0) bucket.durations.splice(0, over);
+  bucket.n = (bucket.n || 0) + 1;
+}
+
+/*
+ * What one saved clip teaches. clipDuration() is the span that gets played,
+ * buffers and all — but the buffers are playback padding the coach never asked
+ * for, and learning them back would add them to every future guess, then add
+ * them again to the guess after that. Take them off and learn the clip that
+ * was actually marked, however it was arrived at: a clip whose effStart or
+ * effEnd is trimmed later still reports its trimmed length here.
+ */
+function clipLearnLength(c) {
+  const buf = (Number(c.bufBefore) || 0) + (Number(c.bufAfter) || 0);
+  return Math.max(1, Math.round(clipDuration(c) - buf));
+}
+
+/*
+ * Record one clip against the model. `strong` pushes the same length twice —
+ * the median arithmetic stays trivial and the sample gets twice the say — and
+ * is what a length the coach corrected gets, because a clip they trimmed says
+ * far more about what they wanted than one they simply let through.
+ */
+function recordDurationSample(clip, opts) {
+  if (!clip) return;
+  const secs = clipLearnLength(clip);
+  if (!isFinite(secs) || secs <= 0) return;
+  const pl = playlists.find(p => p.id === clip.playlistId);
+  const cat = durCategoryKey(pl ? pl.name : '');
+  const tokens = durTokens(clip.label);
+  const times = (opts && opts.strong) ? 2 : 1;
+  for (let i = 0; i < times; i++) {
+    durPush(durationModel.global, secs);
+    if (cat) durPush(durBucket(durationModel.categories, cat), secs);
+    tokens.forEach(t => durPush(durBucket(durationModel.tokens, t), secs));
+  }
+  saveDurationModel();
+}
+
+/* Off falls all the way back to the old behaviour: keywords, then a flat 5s. */
+function smartDurationsOn() {
+  return !settings || settings.smartDurations !== false;
+}
+
+/*
+ * Where a clip's length comes from, in strict order of authority:
+ *
+ *   explicit  the coach stated it — a range, or "for 20 seconds"
+ *   keyword   the coach said short / medium / long / possession
+ *   learned   their own history for this category, tuned by the words spoken
+ *   category  their median for the category alone
+ *   global    their median across everything
+ *   default   the built-in 5s, and only when there is no history at all
+ *
+ * The first rung with enough evidence answers. Nothing below it is consulted.
+ */
+function resolveDuration(input) {
+  input = input || {};
+
+  const stated = Math.round(Number(input.explicitSecs));
+  if (isFinite(stated) && stated > 0) return durResult(stated, 'custom', 'explicit', 1);
+
+  // Either handed a keyword the caller already matched, or find one ourselves
+  let kw = input.keyword || null;
+  if (!kw && input.transcript) {
+    let at = -1;
+    for (const d of DURATION_WORDS) {
+      const m = String(input.transcript).match(d.re);
+      if (m && (at === -1 || m.index < at)) { at = m.index; kw = d; }
+    }
+  }
+  if (kw) return durResult(kw.secs, kw.name, 'keyword', 0.95);
+
+  if (!smartDurationsOn()) {
+    return durResult(DEFAULT_DURATION.secs, DEFAULT_DURATION.name, 'default', 0.1);
+  }
+
+  const cat = durCategoryKey(input.playlistName);
+  const catBucket = cat ? durationModel.categories[cat] : null;
+  if (catBucket && catBucket.n >= DUR_CATEGORY_N && catBucket.durations.length) {
+    const base = median(catBucket.durations);
+    const tuned = durTokenNudge(base, input.label);
+    return durResult(tuned.secs, null, tuned.tokens.length ? 'learned' : 'category',
+      Math.min(0.9, 0.45 + 0.45 * Math.min(1, catBucket.n / 20)),
+      { n: catBucket.n, category: cat, tokens: tuned.tokens });
+  }
+
+  const g = durationModel.global;
+  if (g && g.n >= DUR_GLOBAL_N && g.durations.length) {
+    return durResult(median(g.durations), null, 'global', 0.4, { n: g.n });
+  }
+
+  return durResult(DEFAULT_DURATION.secs, DEFAULT_DURATION.name, 'default', 0.1);
+}
+
+function durResult(secs, name, source, confidence, extra) {
+  let out = Math.round(Number(secs));
+  if (!isFinite(out) || out <= 0) out = DEFAULT_DURATION.secs;
+  // A stated length is the coach's word and stands; everything inferred is
+  // held inside the range a clip can sensibly be.
+  if (source !== 'explicit') out = Math.min(DUR_MAX_SECS, Math.max(DUR_MIN_SECS, out));
+  const named = name || (DURATION_WORDS.find(d => d.secs === out) || {}).name || 'custom';
+  return Object.assign({ secs: out, name: named, source, confidence, n: 0, category: '', tokens: [] }, extra || {});
+}
+
+/*
+ * Pull the category's median toward the medians of the words that were said,
+ * each word weighted by how often it has been seen. The cap matters: the
+ * category is the thing there is real evidence for, so no run of words may
+ * drag the estimate more than DUR_TOKEN_PULL away from it.
+ */
+function durTokenNudge(base, label) {
+  const used = [];
+  let est = base;
+  for (const t of durTokens(label)) {
+    const b = durationModel.tokens[t];
+    if (!b || b.n < DUR_TOKEN_N || !b.durations.length) continue;
+    const weight = Math.min(0.5, b.n / (b.n + 8));
+    est += (median(b.durations) - est) * weight;
+    used.push(t);
+  }
+  const lo = base * (1 - DUR_TOKEN_PULL), hi = base * (1 + DUR_TOKEN_PULL);
+  return { secs: Math.min(hi, Math.max(lo, est)), tokens: used };
+}
+
+/* Why the app picked this length, said the way a coach would say it. Shown on
+ * the confirm card, because a guess nobody can see through is just a bug. */
+function durationNote(res) {
+  const s = Math.round(res.secs) + 's';
+  const clips = (n) => n + ' clip' + (n === 1 ? '' : 's');
+  switch (res.source) {
+    case 'explicit': return s + ', as you called it';
+    case 'keyword':  return s + ', you said “' + res.name + '”';
+    case 'learned':  return s + ', learned from ' + clips(res.n) + ' in ' + (res.category || 'this playlist');
+    case 'category': return s + ', your usual for ' + (res.category || 'this playlist');
+    case 'global':   return s + ', your usual clip length';
+    case 'manual':   return s + ', your call';
+    default:         return s + ', default';
+  }
+}
+
 // Chrome usually returns digits, but not always for a bare "fifteen thirty four"
 const NUM_WORDS = {
   zero:0, oh:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8,
@@ -2868,61 +3165,143 @@ function findTimestamp(text) {
   return null;
 }
 
+/*
+ * An end time, but only where the coach clearly meant one. findTimestamp()
+ * stops at the first timestamp on purpose — a session is one clip, and
+ * everything after it is the label — so a second timestamp is only ever an
+ * end when a range word introduces it AND it sits straight off the back of
+ * the start. "at 15:34 to 15:52" is a range; "at 15:34 Smith to Jones give
+ * and go" is one clip whose label happens to contain the word "to".
+ */
+const RANGE_LEAD = /^\s*(?:to|until|til|till|through|thru|dash|minus|-)\s+/i;
+
+function findEndTime(tail) {
+  const lead = String(tail).match(RANGE_LEAD);
+  if (!lead) return null;
+  const raw = String(tail).slice(lead[0].length);
+  /*
+   * Same parser and the same two passes as the session itself: digits as
+   * spoken first, number words only if that finds nothing. The second pass
+   * is not optional here — wordsToDigits stops arming at the range word, so
+   * "an hour 26 to an hour 26 30" reaches this point with the end still
+   * spelled out in words.
+   */
+  let text = raw, stamp = findTimestamp(text);
+  if (!stamp || stamp.index !== 0) {
+    text = wordsToDigits(raw);
+    stamp = findTimestamp(text);
+  }
+  if (!stamp || stamp.index !== 0) return null;
+  // Hand back what is left rather than a length: the tail may have been
+  // rewritten by that second pass, and the label comes out of the rewrite.
+  return { secs: stamp.secs, rest: text.slice(stamp.length).replace(/\s+/g, ' ').trim() };
+}
+
 /* Turn one timestamp plus the words that follow it into a clip. */
 function parseSegment(secs, tail, raw) {
   let rest = tail.replace(/\s+/g, ' ').trim();
+  let explicitSecs = 0;
+  let warning = '';
+
+  // A stated range wins outright: "at 15:34 to 15:52", "15:34 through 15:52"
+  const range = findEndTime(rest);
+  if (range) {
+    const span = range.secs - secs;
+    if (span > 0 && span <= DUR_MAX_RANGE) explicitSecs = span;
+    // Nonsense in, nothing out: say so on the card and let the ladder decide
+    // the length instead, the same way a timestamp past the film is flagged
+    else warning = span <= 0
+      ? 'That end time is not after the start — worked the length out instead'
+      : 'That range is over ' + Math.round(DUR_MAX_RANGE / 60) + ' minutes — worked the length out instead';
+    rest = range.rest;
+  }
 
   // An explicit length beats the keywords, and stops "for 20 seconds" from
-  // being mistaken for the label
-  const explicit = rest.match(/\bfor\s+(\d{1,3})\s*(?:seconds?|secs?)\b/i);
-  if (explicit) {
-    const secsLong = Math.max(1, +explicit[1]);
-    rest = (rest.slice(0, explicit.index) + ' ' + rest.slice(explicit.index + explicit[0].length))
-      .replace(/\s+/g, ' ').trim();
-    return finishSegment(secs, rest, raw, { secs: secsLong, name: 'custom' });
+  // being mistaken for the label. A bare "for 8" is seconds too.
+  if (!explicitSecs) {
+    const explicit = rest.match(/\bfor\s+(\d{1,3})(?:\s*(?:seconds?|secs?))?\b/i);
+    if (explicit) {
+      explicitSecs = Math.max(1, +explicit[1]);
+      rest = (rest.slice(0, explicit.index) + ' ' + rest.slice(explicit.index + explicit[0].length))
+        .replace(/\s+/g, ' ').trim();
+    }
   }
 
   // Earliest duration word wins, so a label may still contain one later on
-  let duration = DEFAULT_DURATION, at = -1;
+  let keyword = null, at = -1;
   for (const d of DURATION_WORDS) {
     const m = rest.match(d.re);
-    if (m && (at === -1 || m.index < at)) { at = m.index; duration = d; }
+    if (m && (at === -1 || m.index < at)) { at = m.index; keyword = d; }
   }
-  if (at !== -1) {
-    const m = rest.match(duration.re);
+  if (keyword) {
+    const m = rest.match(keyword.re);
     rest = (rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length))
       .replace(/\s+/g, ' ').trim();
   }
 
-  return finishSegment(secs, rest, raw, duration);
+  return finishSegment(secs, rest, raw, { explicitSecs, keyword, warning });
 }
 
-function finishSegment(secs, rest, raw, duration) {
+function finishSegment(secs, rest, raw, opts) {
+  opts = opts || {};
   const game = filmGame();
   const found = extractPlaylist(rest, game ? gamePlaylists(game.id) : []);
   // No leading-filler strip on purpose: "and one" is a shot, not a stray connector
-  let label = found.rest.trim();
+  const spoken = found.rest.trim();
+  let label = spoken;
   if (label) label = label.charAt(0).toUpperCase() + label.slice(1);
   else label = 'Clip ' + fmt(secs);
 
+  // Resolve against the words actually spoken, not the "Clip 15:34" placeholder
+  const dur = resolveDuration({
+    label: spoken,
+    playlistName: found.pl ? found.pl.name : selectedPlaylistName(),
+    transcript: raw,
+    explicitSecs: opts.explicitSecs,
+    keyword: opts.keyword,
+  });
+
   // Flag a timestamp past the end of the film rather than refusing it
-  let warning = '';
+  let warning = opts.warning || '';
   try {
-    const dur = player && player.getDuration ? player.getDuration() : 0;
-    if (dur && secs >= dur) warning = 'That is past the end of this film (' + fmt(dur) + ')';
+    const filmLen = player && player.getDuration ? player.getDuration() : 0;
+    if (filmLen && secs >= filmLen) warning = 'That is past the end of this film (' + fmt(filmLen) + ')';
   } catch (e) {}
 
+  return pendingClip({ secs, label, raw: raw.trim(), pl: found.pl, dur, warning });
+}
+
+/* The one place a pending clip is built. Both parsers come through here, so
+ * nothing downstream can tell a dictated clip from a model-parsed one. */
+function pendingClip(p) {
   return {
-    ok: true, id: uid(), raw: raw.trim(),
-    start: secs,
-    end: secs + duration.secs,
-    durationName: duration.name,
-    durationSecs: duration.secs,
-    label,
-    playlistId: found.pl ? found.pl.id : null,
-    playlistName: found.pl ? found.pl.name : null,
-    warning,
+    ok: true, id: uid(), raw: p.raw,
+    start: p.secs,
+    end: p.secs + p.dur.secs,
+    durationName: p.dur.name,
+    durationSecs: p.dur.secs,
+    durationSource: p.dur.source,
+    durationConfidence: p.dur.confidence,
+    durationCategory: p.dur.category,
+    durationN: p.dur.n,
+    durationNote: durationNote(p.dur),
+    // What was offered, so a length the coach changes can be spotted on confirm
+    resolvedSecs: p.dur.secs,
+    label: p.label,
+    playlistId: p.pl ? p.pl.id : null,
+    playlistName: p.pl ? p.pl.name : null,
+    warning: p.warning || '',
   };
+}
+
+/* With no playlist spoken, the dropdown is where the clip will actually land,
+ * so that is the category its length should be resolved against. */
+function selectedPlaylistName() {
+  try {
+    const el = document.getElementById('clip-playlist');
+    const pl = el && playlists.find(p => p.id === el.value);
+    return pl ? pl.name : '';
+  } catch (e) { return ''; }
 }
 
 /* Match a playlist by name, either after a marker word ("to offence") or
@@ -3152,6 +3531,8 @@ let settings = {
   endpoint: PROVIDER_DEFAULTS.anthropic.endpoint,
   model:    PROVIDER_DEFAULTS.anthropic.model,
   apiKey:   '',
+  // Off is the old behaviour exactly: keywords, then a flat 5 seconds
+  smartDurations: true,
 };
 try {
   const raw = localStorage.getItem('filmroom_settings');
@@ -3170,7 +3551,9 @@ function openSettings() {
   document.getElementById('set-endpoint').value = settings.endpoint;
   document.getElementById('set-model').value    = settings.model;
   document.getElementById('set-key').value      = settings.apiKey;
+  document.getElementById('set-smart-dur').checked = settings.smartDurations !== false;
   document.getElementById('set-test-result').textContent = '';
+  renderDurationModel();
   document.getElementById('settings-modal').classList.remove('hidden');
   renderSettings();
 }
@@ -3182,6 +3565,46 @@ function renderSettings() {
   document.getElementById('set-parser-help').textContent = mode === 'ai'
     ? 'Speech still runs in this browser; only the finished transcript is sent for parsing. Falls back to the built-in parser if the call fails.'
     : 'Everything stays on this machine. Handles the spoken format well; long rambling notes less so.';
+
+  const smart = document.getElementById('set-smart-dur').checked;
+  document.getElementById('set-dur-help').textContent = smart
+    ? 'A clip you don\'t give a length gets the length you usually give clips like it in that playlist. Say a start and an end, or "for 20 seconds", to set one outright.'
+    : 'Every clip you don\'t give a length gets 5 seconds, and only the words short, medium, long and possession change that.';
+  document.getElementById('set-dur-model').style.display = smart ? 'block' : 'none';
+  document.getElementById('set-dur-reset').style.display = smart ? 'inline-flex' : 'none';
+}
+
+/* What the model currently believes, in the coach's own playlist names. */
+function renderDurationModel() {
+  const el = document.getElementById('set-dur-model');
+  if (!el) return;
+  const rows = Object.keys(durationModel.categories)
+    .map(k => ({ key: k, b: durationModel.categories[k] }))
+    .filter(x => x.b.durations.length)
+    .sort((a, b) => b.b.n - a.b.n)
+    .slice(0, 12)
+    .map(x => '<div class="dur-row"><span>' + esc(x.key) + '</span><span>' +
+              Math.round(median(x.b.durations)) + 's · ' + x.b.n + ' clip' + (x.b.n === 1 ? '' : 's') +
+              '</span></div>');
+  const g = durationModel.global;
+  const overall = g.durations.length
+    ? '<div class="dur-row total"><span>everything</span><span>' +
+      Math.round(median(g.durations)) + 's · ' + g.n + ' clip' + (g.n === 1 ? '' : 's') + '</span></div>'
+    : '';
+  el.innerHTML = (rows.length || overall)
+    ? rows.join('') + overall
+    : '<div class="set-help">Nothing learned yet — save a few clips and this fills in. Until then, ' +
+      DEFAULT_DURATION.secs + 's is the fallback.</div>';
+}
+
+/* Clears the history, not the clips. Worth saying out loud in the prompt. */
+function resetDurationModel() {
+  if (!confirm('Forget everything Angl has learned about your clip lengths?\n\n' +
+               'Your clips are not touched — only the lengths it works out for new ones.')) return;
+  durationModel = emptyDurationModel();
+  saveDurationModel();
+  renderDurationModel();
+  toast('Clip length history cleared');
 }
 
 function applyProviderDefaults() {
@@ -3199,6 +3622,7 @@ function saveSettings() {
     endpoint: document.getElementById('set-endpoint').value.trim(),
     model:    document.getElementById('set-model').value.trim(),
     apiKey:   document.getElementById('set-key').value.trim(),
+    smartDurations: document.getElementById('set-smart-dur').checked,
   };
   if (settings.parser === 'ai' && !aiConfigured()) {
     toast('An endpoint and API key are needed for AI parsing');
@@ -3256,17 +3680,22 @@ function buildParserPrompt(transcript) {
     'forty one seconds" is 3641, "1 hour 2 minutes" is 3720, and a bare number',
     'after the hour is still minutes ("1 hour 41" is 1:41:00, 6060).',
     '',
-    'Lengths: short=5s, medium=10s, long=15s, possession=24s. Default to short.',
-    'An explicit length wins: "for 20 seconds" means a 20-second clip.',
+    'Lengths: short=5s, medium=10s, long=15s, possession=24s. Only report one of',
+    'these when the coach actually said the word — otherwise leave it null and',
+    'Angl works the length out from how this coach usually clips.',
+    'An explicit length wins: "for 20 seconds" means a 20-second clip, and so',
+    'does a stated range — "15:34 to 15:52" is an 18-second clip.',
     dur ? ('Film length: ' + fmt(dur) + ' (' + Math.round(dur) + ' seconds).') : '',
     names.length ? ('Playlists available: ' + names.join(', ') + '.') : 'No playlists available.',
     '',
     'Reply with JSON only, no prose or code fences:',
-    '{"clips":[{"seconds":3641,"duration":"long","label":"Pick and roll","playlist":"Offence"}]}',
+    '{"clips":[{"seconds":3641,"duration":null,"label":"Pick and roll","playlist":"Offence"}]}',
     '',
     '- seconds: integer, where the clip starts in the film',
-    '- duration: exactly one of short, medium, long, possession',
-    '- seconds_long: optional integer, only when an explicit length was spoken',
+    '- duration: exactly one of short, medium, long, possession, or null when',
+    '  no length word was spoken',
+    '- seconds_long: optional integer, only when a length was stated outright —',
+    '  either "for N seconds" or the span of a stated start-to-end range',
     '- label: what was described; "" when nothing was said beyond the timestamp',
     '- playlist: exactly one of the listed playlists, or null',
     '- keep basketball wording intact ("long two", "and one" are labels, not lengths)',
@@ -3344,23 +3773,23 @@ function toPendingClips(raw) {
   return raw.map(item => {
     const secs = Math.max(0, Math.round(Number(item && item.seconds)));
     if (!isFinite(secs)) return null;
-    let d = byName[String(item.duration || '').toLowerCase()] || DEFAULT_DURATION;
-    const explicit = Math.round(Number(item.seconds_long));
-    if (isFinite(explicit) && explicit > 0) d = { secs: explicit, name: 'custom' };
-    let label = String(item.label || '').trim();
+    const spoken = String(item.label || '').trim();
+    let label = spoken;
     if (label) label = label.charAt(0).toUpperCase() + label.slice(1);
     else label = 'Clip ' + fmt(secs);
     const want = String(item.playlist == null ? '' : item.playlist).toLowerCase();
     const pl = pls.find(x => x.name.toLowerCase() === want) || null;
-    return {
-      ok: true, id: uid(), raw: '(AI) ' + label,
-      start: secs, end: secs + d.secs,
-      durationName: d.name, durationSecs: d.secs,
-      label,
-      playlistId: pl ? pl.id : null,
-      playlistName: pl ? pl.name : null,
+    // Same ladder as the built-in parser — the model supplies evidence, not a verdict
+    const dur = resolveDuration({
+      label: spoken,
+      playlistName: pl ? pl.name : selectedPlaylistName(),
+      keyword: byName[String(item.duration || '').toLowerCase()] || null,
+      explicitSecs: item.seconds_long,
+    });
+    return pendingClip({
+      secs, label, raw: '(AI) ' + label, pl, dur,
       warning: filmLen && secs >= filmLen ? 'That is past the end of this film (' + fmt(filmLen) + ')' : '',
-    };
+    });
   }).filter(Boolean);
 }
 
@@ -3453,6 +3882,16 @@ function syncPendingFromCard(pc) {
   pc.durationSecs = Math.round((pc.end - pc.start) * 10) / 10;
   const named = DURATION_WORDS.find(d => d.secs === pc.durationSecs);
   pc.durationName = named ? named.name : 'custom';
+  // Moved off what was proposed: the card now says so, and confirming it
+  // teaches the model the corrected length
+  if (pc.resolvedSecs && Math.abs(pc.durationSecs - pc.resolvedSecs) > 0.5) {
+    pc.durationSource = 'manual';
+    pc.durationConfidence = 1;
+  }
+  pc.durationNote = durationNote({
+    secs: pc.durationSecs, name: pc.durationName, source: pc.durationSource,
+    n: pc.durationN, category: pc.durationCategory,
+  });
 
   if (lEl) pc.label = lEl.value.trim() || ('Clip ' + fmt(pc.start));
   if (pEl) {
@@ -3481,12 +3920,27 @@ function editPending(id) {
   if (sEl && document.activeElement !== sEl) sEl.value = fmt(pc.start);
   if (eEl && document.activeElement !== eEl) eEl.value = fmt(pc.end);
   const badge = card.querySelector('.pc-dur');
-  if (badge) badge.textContent = pc.durationName + ' · ' + pc.durationSecs + 's';
+  if (badge) badge.textContent = pc.durationNote;
   const warn = card.querySelector('.pc-warn');
   if (warn) {
     warn.textContent = pc.warning ? '⚠ ' + pc.warning : '';
     warn.style.display = pc.warning ? 'block' : 'none';
   }
+}
+
+/*
+ * One click either way on the length the app worked out. A guess that lands
+ * a second or two off should cost a click, not a redictate — and the clip is
+ * dragged from its end, so the moment it was called out stays put.
+ */
+function bumpLength(id, delta) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (!pc) return;
+  syncPendingFromCard(pc);
+  pc.end = Math.max(pc.start + 1, Math.round((pc.end + delta) * 10) / 10);
+  const card = pendingCardEl(id);
+  if (card) card.querySelector('.pc-end').value = fmt(pc.end);
+  editPending(id);
 }
 
 /* Nudge a pending clip's start or end from the card, without typing. */
@@ -3593,6 +4047,16 @@ function confirmPending(id) {
   if (plEl.querySelector('option[value="' + keep.p + '"]')) plEl.value = keep.p;
 
   if (added) {
+    /*
+     * addClip has already taught the model this clip once. A length the coach
+     * changed from the one that was offered — nudged, or typed over — is the
+     * strongest signal there is about what they actually wanted, so it goes in
+     * a second time and counts double.
+     */
+    const saved = clips[clips.length - 1];
+    if (saved && pc.resolvedSecs && Math.abs((pc.end - pc.start) - pc.resolvedSecs) > 0.5) {
+      recordDurationSample(saved);
+    }
     pendingClips = pendingClips.filter(x => x.id !== id);
     /*
      * addClip selects the clip it just made, which hands it to the watcher —
@@ -3694,12 +4158,13 @@ function renderDictation() {
         <span class="pc-arrow">→</span>
         <input class="time-input pc-end" value="${fmt(pc.end)}" onchange="editPending('${pc.id}')"
                onkeydown="if(event.key==='Enter')this.blur()" title="Clip end" />
-        <span class="pending-dur pc-dur">${pc.durationName} · ${pc.durationSecs}s</span>
         <span class="pc-bump">
-          <button class="pc-step" onclick="bumpPending('${pc.id}','start',-1)" title="Start 1s earlier">−</button>
-          <button class="pc-step" onclick="bumpPending('${pc.id}','end',1)" title="End 1s later">+</button>
+          <button class="pc-step" onclick="bumpPending('${pc.id}','start',-1)" title="Start 1 second earlier">«</button>
+          <button class="pc-step" onclick="bumpLength('${pc.id}',-1)" title="1 second shorter">−</button>
+          <button class="pc-step" onclick="bumpLength('${pc.id}',1)" title="1 second longer">+</button>
         </span>
       </div>
+      <div class="pending-why pc-dur" title="Where this length came from">${esc(pc.durationNote || (pc.durationSecs + 's'))}</div>
       <input class="text-input pc-label" value="${esc(pc.label)}" placeholder="Clip label"
              oninput="editPending('${pc.id}')" />
       <select class="pl-select pc-playlist" onchange="editPending('${pc.id}')">${opts}</select>
