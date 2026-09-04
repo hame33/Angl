@@ -1436,8 +1436,13 @@ function migrateToGames(legacyVideoId) {
     if (!byVideo.has(key)) byVideo.set(key, { videoId: vid, list: [] });
     byVideo.get(key).list.push(c);
   });
-  // A film that was loaded but never clipped is still worth keeping
-  if (!byVideo.size && legacyVideoId) byVideo.set(legacyVideoId, { videoId: legacyVideoId, list: [] });
+  // A film that was loaded but never clipped is still worth keeping — and so
+  // are categories set up before the first clip was cut. Playlists belong to a
+  // game now, so with no film to hang them on they need a filmless one; without
+  // it the rescue below has no games[0] to park them on and they are dropped.
+  if (!byVideo.size && (legacyVideoId || playlists.length)) {
+    byVideo.set(legacyVideoId || '__unknown__', { videoId: legacyVideoId || null, list: [] });
+  }
 
   const oldPlaylists = playlists;
   playlists = [];

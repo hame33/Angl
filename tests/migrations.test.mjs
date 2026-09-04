@@ -228,6 +228,55 @@ test('a film that was loaded but never clipped is still kept', () => {
   assert.equal(app.playlists[0].name, 'General');
 });
 
+test('categories set up before the first clip survive, film or no film', () => {
+  // The shape that used to lose everything: playlists, no clips, no film. It
+  // reaches migrateToGames through importJSON, which always passes null.
+  const app = loadApp();
+  app.clips = [];
+  app.games = [];
+  app.playlists = [
+    { id: 'p1', name: 'Defence',   emoji: '\u{1F6E1}\uFE0F' },
+    { id: 'p2', name: 'Set plays', emoji: '\u{1F3AF}' },
+  ];
+
+  app.migrateToGames(null);
+
+  const names = plain(app.playlists.map(p => p.name));
+  assert.ok(names.includes('Defence'),   'Defence is the coach\'s, clipped into or not');
+  assert.ok(names.includes('Set plays'), 'and so is Set plays');
+  assert.equal(app.games.length, 1, 'they need a game to belong to, so one is made');
+  assert.equal(app.games[0].videoId, null, 'with no film, because there was none');
+  for (const pl of app.playlists) {
+    assert.equal(pl.gameId, app.games[0].id, pl.name + ' must be reachable from a game');
+  }
+});
+
+test('importing a library that had categories but no clips keeps them', () => {
+  const app = libraryOf({});
+  app.clips = [];
+  app.games = [];
+  app.playlists = [{ id: 'p1', name: 'Press break', emoji: '\u{1F3AF}' }];
+
+  app.migrateToGames(null);                             // exactly what importJSON does
+  app.migrateToTeams();
+
+  assert.ok(plain(app.playlists.map(p => p.name)).includes('Press break'));
+  assert.equal(app.teams.length, 1, 'and the rebuilt game still gets an owner');
+  assert.equal(app.games[0].teamId, app.teams[0].id);
+});
+
+test('a truly empty library is still left completely alone', () => {
+  const app = loadApp();
+  app.clips = [];
+  app.playlists = [];
+  app.games = [];
+
+  app.migrateToGames(null);
+
+  assert.equal(app.games.length, 0, 'nothing to migrate means nothing invented');
+  assert.equal(app.playlists.length, 0);
+});
+
 /* ── Ordering, and the guards that stop a second migration ────────────────── */
 
 test('games are migrated before teams, so every rebuilt game gets an owner', () => {
