@@ -29,14 +29,25 @@ function fakeElement() {
   return el;
 }
 
+/* `failFor` lets a test simulate a full disk for one key, which is how the
+ * "a full log never costs a clip" guarantee gets exercised. */
 function fakeStorage() {
   const map = new Map();
-  return {
+  const store = {
+    failFor: null,
     getItem: (k) => (map.has(k) ? map.get(k) : null),
-    setItem: (k, v) => { map.set(k, String(v)); },
+    setItem: (k, v) => {
+      if (store.failFor && store.failFor(k)) {
+        const e = new Error('quota');
+        e.name = 'QuotaExceededError';
+        throw e;
+      }
+      map.set(k, String(v));
+    },
     removeItem: (k) => { map.delete(k); },
     clear: () => map.clear(),
   };
+  return store;
 }
 
 /* Everything a test needs that `let`/`const` keeps off the sandbox global. */
@@ -56,6 +67,11 @@ globalThis.__app = {
   get clips() { return clips; },
   set clips(v) { clips = v; },
   backfillDurationModel, resetDurationModel, loadFromStorage,
+  logDictationMiss, logDictationConfirm, logDictationDiscard,
+  loadDictationLog, saveDictationLog, dictationLogBytes, clearDictationLog,
+  pendingClip, saveToStorage,
+  get dictationLog() { return dictationLog; },
+  set dictationLog(v) { dictationLog = v; },
   set answerConfirm(v) { globalThis.answerConfirm = v; },
   DURATION_WORDS, DEFAULT_DURATION, DUR_SAMPLE_CAP,
 };
@@ -94,6 +110,7 @@ export function loadApp() {
     answerConfirm: false,
     alert() {},
   };
+  sandbox.__storage = sandbox.localStorage;   // tests reach in to force a quota
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.window.addEventListener = () => {};
@@ -102,7 +119,13 @@ export function loadApp() {
 
   vm.createContext(sandbox);
   vm.runInContext(source + EPILOGUE, sandbox, { filename: 'index.html' });
-  return sandbox.__app;
+
+  // Host-side handles on the sandbox's storage, for tests about persistence
+  const app = sandbox.__app;
+  app.__storageGet = (k) => sandbox.localStorage.getItem(k);
+  app.__failWritesTo = (key) => { sandbox.localStorage.failFor = (k) => k === key; };
+  app.__allowAllWrites = () => { sandbox.localStorage.failFor = null; };
+  return app;
 }
 
 /* A game with playlists, so extractPlaylist and category lookups have

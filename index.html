@@ -1120,6 +1120,17 @@
       <button class="btn" id="set-dur-reset" onclick="resetDurationModel()">Forget what's been learned</button>
     </div>
 
+    <div class="set-row">
+      <div class="set-label">Dictation log</div>
+      <div class="set-help">
+        What you said, what Angl made of it, and what you kept. Nothing reads it yet —
+        it is kept so a later version can learn to parse you better. It stays on this
+        machine and travels with your Export.
+      </div>
+      <div class="dur-model" id="set-log-stats"></div>
+      <button class="btn" onclick="clearDictationLog()">Clear the log</button>
+    </div>
+
     <div id="set-ai-fields">
       <div class="set-row">
         <div class="set-label">Provider</div>
@@ -1294,6 +1305,8 @@ function loadFromStorage() {
   } catch (e) { durationModel = emptyDurationModel(); }
   // First run on a library that predates the model: learn what is already here
   if (!durationModel.backfilled) backfillDurationModel();
+
+  loadDictationLog();
 
   // Saves made before games existed have flat playlists and no gameId
   if (!games.length) migrateToGames(localStorage.getItem('filmroom_video'));
@@ -2017,7 +2030,7 @@ function renderClips() {
 function exportJSON() {
   // version 4 adds the clip-length model; clips keep videoId so old downloaders
   // still work, and an older reader simply ignores the extra key
-  const data = { version: 4, teams, games, playlists, clips, durationModel };
+  const data = { version: 4, teams, games, playlists, clips, durationModel, dictationLog };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2064,6 +2077,17 @@ function importJSON(event) {
       } else {
         durationModel = emptyDurationModel();
         backfillDurationModel();
+      }
+      // The log is a record of sessions, not of a library, so an import adds to
+      // it rather than replacing it — a coach merging their own two machines
+      // must not lose half their transcripts to whichever imported second.
+      if (Array.isArray(data.dictationLog) && data.dictationLog.length) {
+        const seen = new Set(dictationLog.map(e => e.at + '|' + e.heard));
+        data.dictationLog.forEach(e => {
+          if (e && !seen.has(e.at + '|' + e.heard)) { seen.add(e.at + '|' + e.heard); dictationLog.push(e); }
+        });
+        dictationLog.sort((a, b) => (a.at || 0) - (b.at || 0));
+        saveDictationLog();
       }
       activeTeam = teams.length ? teams[0].id : null;
       activeGame = games.length ? games[0].id : null;
@@ -3021,6 +3045,157 @@ function durationNote(res) {
   }
 }
 
+/* ── Dictation log ───────────────────────────────────────────────────────────
+ * What was heard, what the parser made of it, and what the coach actually
+ * kept. The duration model above could be rebuilt from the clip library
+ * because a saved clip still carries its length; this cannot be rebuilt from
+ * anything. A transcript that isn't written down when it is spoken is gone,
+ * and with it the one signal a correction model needs — the pairing of a
+ * parse with the fix a human made to it.
+ *
+ * Nothing reads this yet. It exists so that something can.
+ *
+ * Three outcomes are worth as much as each other and all three are kept:
+ * a miss (no timestamp found at all), a correction (the coach changed what
+ * was offered), and a clean confirm (they changed nothing) — the last being
+ * the negative examples, without which a model learns to "fix" what was
+ * already right.
+ */
+const DICTATION_LOG_KEY = 'filmroom_dictation_log';
+const DICT_LOG_VERSION  = 1;
+const DICT_LOG_SOFT_CAP = 1000000;  // ~1MB of log, where the nagging starts
+const DICT_LOG_HARD_CAP = 2000000;  // ~2MB, where it gets said every session
+
+let dictationLog = [];
+let dictLogBroken = false;   // a write failed; stop retrying and stop nagging
+let dictLogWarned = false;   // the size warning is once a session, not once a clip
+
+/* Its own key and its own write, deliberately.
+ *
+ * localStorage is one quota shared with the clip library, and this log is the
+ * only thing here that grows without limit. It is written after the clips and
+ * never in the same try block, so a log too big to store can only ever cost
+ * the log: the clips are already in by the time this runs, and a failure here
+ * says so rather than firing saveToStorage's "clips are NOT being saved".
+ * Nothing about training data is worth one lost clip.
+ */
+function saveDictationLog() {
+  if (dictLogBroken) return;
+  try {
+    localStorage.setItem(DICTATION_LOG_KEY, JSON.stringify(dictationLog));
+  } catch (e) {
+    if (isQuotaError(e)) {
+      dictLogBroken = true;
+      toast('Storage is full — the dictation log has stopped recording. Your clips are safe. Export, then clear the log in Settings.');
+    }
+  }
+}
+
+function loadDictationLog() {
+  try {
+    const raw = localStorage.getItem(DICTATION_LOG_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    dictationLog = Array.isArray(parsed) ? parsed : [];
+  } catch (e) { dictationLog = []; }
+  dictLogBroken = false;
+  dictLogWarned = false;
+}
+
+function dictationLogBytes() {
+  try { return JSON.stringify(dictationLog).length; } catch (e) { return 0; }
+}
+
+/* Nothing is ever dropped, so the only honest thing to do is say when it is
+ * getting big — before the quota does it for us, and while exporting is still
+ * the easy answer. Once a session, not once a clip. */
+function warnIfLogLarge() {
+  if (dictLogBroken || dictLogWarned) return;
+  const bytes = dictationLogBytes();
+  if (bytes < DICT_LOG_SOFT_CAP) return;
+  dictLogWarned = true;
+  toast(bytes >= DICT_LOG_HARD_CAP
+    ? 'The dictation log is over ' + Math.round(bytes / 1000000) + 'MB and shares storage with your clips. Export and clear it in Settings.'
+    : 'The dictation log has passed 1MB. No hurry, but export it before it crowds your clips.');
+}
+
+/* A snapshot of a clip, by playlist name rather than id, so a row still reads
+ * as a training example long after the library it came from was replaced. */
+function dictSnapshot(o) {
+  if (!o) return null;
+  return {
+    start: Math.round(o.start * 100) / 100,
+    end:   Math.round(o.end * 100) / 100,
+    label: o.label || '',
+    playlist: o.playlistName || null,
+  };
+}
+
+/*
+ * One row per dictation session. `heard` is the session transcript exactly as
+ * the browser returned it — not the normalised, digit-converted text the
+ * parser works on, which is already a lossy read of what was said.
+ */
+function logDictation(entry) {
+  if (dictLogBroken) return;
+  dictationLog.push(Object.assign({ v: DICT_LOG_VERSION, at: Date.now() }, entry));
+  saveDictationLog();
+  warnIfLogLarge();
+}
+
+/* No timestamp found: the parser failed outright and the transcript is still
+ * in hand. The most informative row there is. */
+function logDictationMiss(heard, parser) {
+  if (!heard) return;
+  logDictation({ outcome: 'missed', parser, heard, parsed: null, kept: null });
+}
+
+/* A clip reaching the library, and whether the coach changed it on the way. */
+function logDictationConfirm(pc, kept) {
+  if (!pc || !pc.heard) return;   // typed clips have no transcript to learn from
+  const before = pc.parsed || null;
+  const after  = dictSnapshot(kept);
+  const changed = !before || !after
+    || Math.abs(before.start - after.start) > 0.5
+    || Math.abs(before.end - after.end) > 0.5
+    || before.label !== after.label
+    || before.playlist !== after.playlist;
+  logDictation({
+    outcome: changed ? 'corrected' : 'confirmed',
+    parser: pc.parser || 'builtin',
+    heard: pc.heard,
+    parsed: before,
+    kept: after,
+    durationSource: pc.durationSource || '',
+  });
+}
+
+/* Thrown away rather than fixed — the parse was far enough off to be not
+ * worth correcting, which is its own kind of signal. */
+function logDictationDiscard(pc) {
+  if (!pc || !pc.heard) return;
+  logDictation({
+    outcome: 'discarded',
+    parser: pc.parser || 'builtin',
+    heard: pc.heard,
+    parsed: pc.parsed || null,
+    kept: null,
+    durationSource: pc.durationSource || '',
+  });
+}
+
+function clearDictationLog() {
+  if (!confirm('Clear the dictation log?\n\n' +
+               'This is the record of what you said and what Angl made of it — kept so a future ' +
+               'version can learn to parse you better. Your clips are not touched.\n\n' +
+               'Export first if you want to keep it.')) return;
+  dictationLog = [];
+  dictLogBroken = false;
+  dictLogWarned = false;
+  try { localStorage.removeItem(DICTATION_LOG_KEY); } catch (e) {}
+  renderDictationLog();
+  toast('Dictation log cleared');
+}
+
 // Chrome usually returns digits, but not always for a bare "fifteen thirty four"
 const NUM_WORDS = {
   zero:0, oh:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8,
@@ -3322,6 +3497,20 @@ function pendingClip(p) {
     playlistId: p.pl ? p.pl.id : null,
     playlistName: p.pl ? p.pl.name : null,
     warning: p.warning || '',
+    /*
+     * The parse exactly as it came out, frozen. Everything else on this object
+     * is edited in place by the card, so by confirm time there is nothing left
+     * to compare against — and the difference between what was parsed and what
+     * was kept is the whole point of the dictation log.
+     */
+    parsed: {
+      start: p.secs,
+      end: p.secs + p.dur.secs,
+      label: p.label,
+      playlist: p.pl ? p.pl.name : null,
+    },
+    parser: p.parser || 'builtin',
+    heard: '',   // stamped by finishSession, which has the untouched transcript
   };
 }
 
@@ -3494,8 +3683,14 @@ async function finishSession() {
     try {
       const clips = await callParser(full);
       aiParsing = false;
-      if (clips.length) { pendingClips = pendingClips.concat(clips); lastMiss = ''; }
-      else lastMiss = full;
+      if (clips.length) {
+        clips.forEach(c => { c.heard = full; });
+        pendingClips = pendingClips.concat(clips);
+        lastMiss = '';
+      } else {
+        lastMiss = full;
+        logDictationMiss(full, 'ai');
+      }
       renderDictation();
       revealDictation();
       return;
@@ -3508,10 +3703,15 @@ async function finishSession() {
 
   const out = parseDictationBatch(full);
   if (out.clips.length) {
+    // The transcript as the browser returned it, not the normalised text the
+    // parser worked on — the normalisation is itself a lossy read of what was
+    // said, and a model learning to parse this needs the words, not our guess.
+    out.clips.forEach(c => { c.heard = full; });
     pendingClips = pendingClips.concat(out.clips);
     lastMiss = '';
   } else {
     lastMiss = full;
+    logDictationMiss(full, 'builtin');
   }
   renderDictation();
   revealDictation();
@@ -3585,6 +3785,7 @@ function openSettings() {
   document.getElementById('set-smart-dur').checked = settings.smartDurations !== false;
   document.getElementById('set-test-result').textContent = '';
   renderDurationModel();
+  renderDictationLog();
   document.getElementById('settings-modal').classList.remove('hidden');
   renderSettings();
 }
@@ -3626,6 +3827,29 @@ function renderDurationModel() {
     ? rows.join('') + overall
     : '<div class="set-help">Nothing learned yet — save a few clips and this fills in. Until then, ' +
       DEFAULT_DURATION.secs + 's is the fallback.</div>';
+}
+
+/* Size and shape of the log, so "keep everything" stays something a coach can
+ * actually see rather than a number quietly climbing toward the quota. */
+function renderDictationLog() {
+  const el = document.getElementById('set-log-stats');
+  if (!el) return;
+  if (!dictationLog.length) {
+    el.innerHTML = '<div class="set-help">Nothing logged yet — it fills as you dictate.</div>';
+    return;
+  }
+  const by = { confirmed: 0, corrected: 0, discarded: 0, missed: 0 };
+  dictationLog.forEach(e => { if (by[e.outcome] !== undefined) by[e.outcome]++; });
+  const kb = Math.max(1, Math.round(dictationLogBytes() / 1000));
+  const row = (name, n) => '<div class="dur-row"><span>' + name + '</span><span>' + n + '</span></div>';
+  el.innerHTML =
+    row('kept as parsed', by.confirmed) +
+    row('corrected first', by.corrected) +
+    row('discarded', by.discarded) +
+    row('nothing parsed', by.missed) +
+    '<div class="dur-row total"><span>' + dictationLog.length + ' session' +
+    (dictationLog.length === 1 ? '' : 's') + '</span><span>' +
+    (kb >= 1000 ? (kb / 1000).toFixed(1) + ' MB' : kb + ' KB') + '</span></div>';
 }
 
 /* Clears the history, not the clips. Worth saying out loud in the prompt. */
@@ -3819,7 +4043,7 @@ function toPendingClips(raw) {
       explicitSecs: item.seconds_long,
     });
     return pendingClip({
-      secs, label, raw: '(AI) ' + label, pl, dur,
+      secs, label, raw: '(AI) ' + label, pl, dur, parser: 'ai',
       warning: filmLen && secs >= filmLen ? 'That is past the end of this film (' + fmt(filmLen) + ')' : '',
     });
   }).filter(Boolean);
@@ -4089,6 +4313,13 @@ function confirmPending(id) {
     if (saved && pc.resolvedSecs && Math.abs((pc.end - pc.start) - pc.resolvedSecs) > 0.5) {
       recordDurationSample(saved);
     }
+    // What actually reached the library: addClip can substitute a fallback
+    // playlist, and that substitution is part of what was kept.
+    const keptPl = saved && playlists.find(x => x.id === saved.playlistId);
+    logDictationConfirm(pc, saved ? {
+      start: saved.start, end: saved.end, label: saved.label,
+      playlistName: keptPl ? keptPl.name : null,
+    } : pc);
     pendingClips = pendingClips.filter(x => x.id !== id);
     /*
      * addClip selects the clip it just made, which hands it to the watcher —
@@ -4104,6 +4335,8 @@ function confirmPending(id) {
 }
 
 function discardPending(id) {
+  const pc = pendingClips.find(x => x.id === id);
+  if (pc) { syncPendingFromCard(pc); logDictationDiscard(pc); }
   if (previewId === id) { stopPreview(false); }
   pendingClips = pendingClips.filter(x => x.id !== id);
   renderDictation();
@@ -4114,6 +4347,7 @@ function confirmAllPending() {
 }
 function discardAllPending() {
   stopPreview(false);
+  pendingClips.forEach(pc => { syncPendingFromCard(pc); logDictationDiscard(pc); });
   pendingClips = [];
   renderDictation();
 }

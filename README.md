@@ -207,6 +207,25 @@ way it used to. The same panel shows what Angl currently thinks each playlist is
 worth, and has a button to make it forget and start again — which forgets your
 back catalogue too, and stays forgotten.
 
+### The dictation log
+
+Alongside the clips, Angl keeps a record of each dictation session: what you
+said, what it made of it, and what you actually kept — including the sessions
+where it found nothing at all, and the ones you threw away.
+
+Nothing reads that log today. It exists because the useful part of it cannot be
+recovered later: a saved clip still carries its length, which is why clip
+lengths could be learned from your back catalogue, but a transcript that was not
+written down when it was spoken is simply gone. The pairing of a parse with the
+correction you made to it is what a future version would need to learn to hear
+you better, and it only exists at the moment you make it.
+
+It stays on this machine, it travels with your Export, and it is never sent
+anywhere. Settings → Dictation log shows how big it has got and has a button to
+clear it. Nothing is dropped automatically, so Angl will tell you when the log
+gets large enough to be worth exporting — it shares storage with your clips, and
+your clips come first.
+
 ## Status
 
 Angl is built by a basketball coach and used every week on real game film. It works,

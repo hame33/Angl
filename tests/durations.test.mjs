@@ -327,3 +327,93 @@ test('forgetting the history keeps it forgotten', () => {
   assert.equal(app.durationModel.global.n, 0, 'the history is gone');
   assert.equal(app.durationModel.backfilled, true, 'and a reload must not put it back');
 });
+
+/* ── Dictation log ────────────────────────────────────────────────────────── */
+
+/* A pending clip as finishSession hands it on: parsed, then stamped with the
+ * transcript exactly as the browser returned it. */
+function heardClip(app, transcript, overrides) {
+  const pc = app.parseDictation(transcript);
+  pc.heard = transcript;
+  return Object.assign(pc, overrides || {});
+}
+
+test('a clean confirm and a corrected one are told apart', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+
+  const clean = heardClip(app, 'at 15:34 pick and roll');
+  app.logDictationConfirm(clean, { start: clean.start, end: clean.end, label: clean.label, playlistName: null });
+
+  const fixed = heardClip(app, 'at 15:34 pick and roll');
+  app.logDictationConfirm(fixed, { start: 934, end: 950, label: 'Pick and pop', playlistName: 'Offence' });
+
+  const log = [...app.dictationLog];
+  assert.equal(log.length, 2);
+  assert.equal(log[0].outcome, 'confirmed');
+  assert.equal(log[1].outcome, 'corrected');
+  // the pairing a correction model trains on
+  assert.equal(log[1].heard, 'at 15:34 pick and roll');
+  assert.equal(log[1].parsed.label, 'Pick and roll');
+  assert.equal(log[1].kept.label, 'Pick and pop');
+});
+
+test('the parse is frozen at birth, so card edits cannot rewrite it', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+  const pc = heardClip(app, 'at 15:34 pick and roll');
+  const parsedLabel = pc.parsed.label;
+  pc.label = 'Something else entirely';   // as the card would
+  pc.end = pc.start + 40;
+  app.logDictationConfirm(pc, { start: pc.start, end: pc.end, label: pc.label, playlistName: null });
+  assert.equal([...app.dictationLog][0].parsed.label, parsedLabel);
+  assert.equal([...app.dictationLog][0].outcome, 'corrected');
+});
+
+test('a miss keeps the transcript, which is the whole point of it', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+  app.logDictationMiss('nice hands from the big fella', 'builtin');
+  const e = [...app.dictationLog][0];
+  assert.equal(e.outcome, 'missed');
+  assert.equal(e.heard, 'nice hands from the big fella');
+  assert.equal(e.parsed, null);
+});
+
+test('a discard is logged, and a typed clip with no transcript is not', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+  app.logDictationDiscard(heardClip(app, 'at 15:34 nonsense'));
+  app.logDictationDiscard({ label: 'typed by hand', start: 0, end: 5 });   // no heard
+  assert.equal([...app.dictationLog].length, 1);
+  assert.equal([...app.dictationLog][0].outcome, 'discarded');
+});
+
+test('the log survives a round trip through storage', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+  app.logDictationMiss('one', 'builtin');
+  app.logDictationMiss('two', 'builtin');
+  app.dictationLog = [];
+  app.loadDictationLog();
+  assert.equal([...app.dictationLog].length, 2);
+  assert.deepEqual([...app.dictationLog].map(e => e.heard), ['one', 'two']);
+});
+
+test('a log too big to store never costs a clip', () => {
+  const app = freshApp();
+  app.dictationLog = [];
+  const pls = withPlaylists(app, ['Offence']);
+  app.clips = [{ id: 'c1', label: 'keep me', playlistId: pls[0].id,
+                 start: 0, end: 5, effStart: 0, effEnd: 5, bufBefore: 0, bufAfter: 0 }];
+
+  // Anything trying to write the log hits a full disk; everything else is fine
+  app.__failWritesTo('filmroom_dictation_log');
+  app.saveToStorage();          // clips, playlists, games, teams, duration model
+  app.logDictationMiss('this cannot be stored', 'builtin');
+
+  assert.equal(JSON.parse(app.__storageGet('filmroom_clips')).length, 1,
+    'the clip library was written even though the log could not be');
+  assert.equal(app.__storageGet('filmroom_dictation_log'), null,
+    'and the log simply did not record');
+});
