@@ -1740,10 +1740,16 @@ function captureTime(field) {
 }
 
 /* ── Playlists ── */
+/* Rebuilt whenever the sport in force can have changed, not once at load: the
+ * palette leads with the sport's own emoji, and a basketball left selected on a
+ * netball team would be written onto the next playlist created. */
 function buildEmojiRow() {
   const row = document.getElementById('emoji-row');
-  if (!selectedEmoji) selectedEmoji = activeProfile().defaultEmoji;
-  row.innerHTML = emojiChoices().map(e =>
+  if (!row) return;
+  const choices = emojiChoices();
+  // Anything not on this sport's palette belongs to the sport we came from
+  if (!selectedEmoji || choices.indexOf(selectedEmoji) < 0) selectedEmoji = choices[0];
+  row.innerHTML = choices.map(e =>
     `<div class="emoji-opt${e === selectedEmoji ? ' selected' : ''}" onclick="selectEmoji('${e}')">${e}</div>`
   ).join('');
 }
@@ -1909,6 +1915,7 @@ function updatePlaylistSelect() {
   // pick and roll. Set here because this already runs when the film changes.
   const labelEl = document.getElementById('clip-label');
   if (labelEl) labelEl.placeholder = 'Clip label (e.g. ' + activeProfile().labelPlaceholder + ')';
+  buildEmojiRow();     // same reason: the sport may have changed with the film
   // Scope to the game whose film is on screen — in a cross-game category view
   // that is not necessarily the game in the sidebar.
   const game = filmGame();
@@ -3469,6 +3476,15 @@ function wordsToDigits(text) {
     afterHour = false;
     // A token the sport has claimed is a label word: it neither converts nor
     // keeps the converter armed for whatever follows it.
+    //
+    // Two limits on that, for whoever writes the third sport profile. This
+    // check sits below the HOUR_WORD and LEAD_WORD branches above, so a
+    // protected phrase containing "at", "hour", "minute", "min", "mark",
+    // "time", "timestamp" or "clip" re-arms the converter instead of being
+    // protected — do not put those words in protectedPhrases. And the tens
+    // pairing further down consumes the following token with i++ without
+    // testing it, so a phrase that starts with a tens word ("twenty one")
+    // would half-convert. Neither is reachable with the phrases shipped today.
     if (owned(i)) { armed = false; out.push(toks[i]); continue; }
     if (armed && /^\d+:?\d*$/.test(toks[i])) { out.push(toks[i]); continue; }
     if (armed && Object.prototype.hasOwnProperty.call(NUM_WORDS, w)) {

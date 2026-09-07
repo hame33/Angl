@@ -274,6 +274,51 @@ test('no basketball wording reaches a netball coach\'s prompt', () => {
   }
 });
 
+/* ── The emoji palette follows the sport ─────────────────────────────────── */
+
+test('each sport leads its palette with its own emoji', () => {
+  const bb = appFor('basketball');
+  assert.equal(bb.emojiChoices()[0], bb.SPORT_PROFILES.basketball.defaultEmoji);
+  const net = appFor('netball');
+  assert.equal(net.emojiChoices()[0], net.SPORT_PROFILES.netball.defaultEmoji);
+  assert.ok(!net.emojiChoices().includes(bb.SPORT_PROFILES.basketball.defaultEmoji),
+    'a netball coach is never offered the basketball');
+});
+
+test('a palette carries no sport emoji twice', () => {
+  for (const id of ['basketball', 'netball']) {
+    const app = appFor(id);
+    const choices = app.emojiChoices();
+    assert.equal(new Set(choices).size, choices.length, id + ' repeated an emoji');
+  }
+});
+
+test('an emoji left selected from another sport does not survive the switch', () => {
+  const app = appFor('basketball');
+  app.buildEmojiRow();
+  const bball = app.SPORT_PROFILES.basketball.defaultEmoji;
+  assert.equal(app.selectedEmoji, bball, 'a basketball team starts on the basketball');
+
+  app.setTeamSport('t1', 'netball');
+  app.buildEmojiRow();
+
+  assert.notEqual(app.selectedEmoji, bball,
+    'the basketball must not be written onto a netball playlist');
+  assert.equal(app.selectedEmoji, app.SPORT_PROFILES.netball.defaultEmoji);
+  assert.ok(app.emojiChoices().includes(app.selectedEmoji),
+    'whatever is selected must be on the palette, or nothing shows as selected');
+});
+
+test('a neutral emoji the coach picked is kept across a sport change', () => {
+  const app = appFor('basketball');
+  app.buildEmojiRow();
+  app.selectedEmoji = '🎯';                    // on every sport's palette
+  app.setTeamSport('t1', 'netball');
+  app.buildEmojiRow();
+  assert.equal(app.selectedEmoji, '🎯',
+    'only an emoji belonging to the sport we came from is replaced');
+});
+
 /* ── The profiles themselves ──────────────────────────────────────────────── */
 
 test('every profile carries the whole shape, so no lookup can come back undefined', () => {

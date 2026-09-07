@@ -178,9 +178,15 @@ When you do want to say a length, say it, and nothing is inferred:
 - "at 15:34 **for 20 seconds**", or just "for 20"
 - "at 15:34 **long** pull up" — `short` is 5s, `medium` 10s and `long` 15s, plus
   whatever else your sport has: basketball adds `possession` at 24s for the shot
-  clock, netball has no equivalent and so has none. Wording your sport claims for
-  itself is never read as a length — a basketball "long two" and a netball "long
-  pass" both keep their word and get their length worked out like any other clip.
+  clock, netball has no equivalent and so has none.
+
+Wording your sport claims for itself is never read as a length: a basketball
+"long two" and a netball "long pass" both keep their word, and get their length
+worked out like any other clip. That protection is a list, though, not a rule —
+it covers the phrases your sport actually names. A length word anywhere else in
+a label is still read as a length and taken out of it, so "at 15:34 short two"
+gives you a five-second clip labelled "Two". If that costs you a phrase your
+sport uses, [say so][sport-issue] — adding it is one line.
 
 A "to" only opens a range when a time follows it straight away, so "at 15:34
 Smith to Jones give and go" is still one clip with a long label. And a range that

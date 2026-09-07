@@ -79,6 +79,9 @@ globalThis.__app = {
   // Sport profiles: a team owns one, and the parser reads it through activeProfile
   SPORT_PROFILES, DEFAULT_SPORT, sportProfile, teamProfile, activeProfile,
   protectedSpans, wordsToDigits, createTeam, setTeamSport, seedPlaylists,
+  emojiChoices, buildEmojiRow, NEUTRAL_EMOJIS,
+  get selectedEmoji() { return selectedEmoji; },
+  set selectedEmoji(v) { selectedEmoji = v; },
   buildParserPrompt,
   get teams() { return teams; },
   set teams(v) { teams = v; },
