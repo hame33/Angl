@@ -49,6 +49,8 @@ test('a pre-teams library gains exactly one team and loses no clips', () => {
 
   assert.equal(app.teams.length, 1, 'exactly one team, not one per game');
   assert.equal(app.teams[0].name, 'My team');
+  assert.equal(app.teams[0].sport, 'basketball',
+    'a team made here is new, so it records its sport like any other new team');
   assert.equal(app.games.length, 2, 'no game was invented or dropped');
   for (const g of app.games) {
     assert.equal(g.teamId, app.teams[0].id, g.title + ' must belong to the new team');
@@ -70,6 +72,8 @@ test('orphaned games join the team that is already there rather than making anot
   assert.equal(app.teams.length, 1, 'no second team');
   assert.equal(app.teams[0].name, 'Senior Women', 'and the real one was not renamed');
   assert.equal(app.games[1].teamId, 't9', 'the orphan was adopted');
+  assert.ok(!('sport' in app.teams[0]),
+    'adopting an orphan is not a reason to write a sport onto a team already on disk');
 });
 
 test('a library that is already migrated is left exactly alone', () => {

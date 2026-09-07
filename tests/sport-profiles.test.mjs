@@ -160,6 +160,19 @@ test('switching a team\'s profile does not alter clips already saved', () => {
   assert.equal(app.games.length, 1, 'no game was added or dropped');
 });
 
+test('picking the sport a team already reads as is a no-op, not a change', () => {
+  const app = appFor(undefined);                 // a team saved before sports existed
+  assert.ok(!('sport' in app.teams[0]));
+
+  app.setTeamSport('t1', 'basketball');          // which is what it already reads as
+
+  assert.ok(!('sport' in app.teams[0]),
+    'a no-op must not write a field onto a team that was fine without one');
+
+  app.setTeamSport('t1', 'netball');             // a real change still lands
+  assert.equal(app.teams[0].sport, 'netball');
+});
+
 test('switching sports changes only what happens next', () => {
   const app = appFor('basketball');
   assert.equal(app.parseDictation('at 15:34 long two').label, 'Long two');

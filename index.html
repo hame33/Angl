@@ -1436,7 +1436,7 @@ function migrateToTeams() {
   if (!orphans.length) return;
   let team = teams[0];
   if (!team) {
-    team = { id: uid(), name: DEFAULT_TEAM_NAME, createdAt: Date.now() };
+    team = { id: uid(), name: DEFAULT_TEAM_NAME, sport: DEFAULT_SPORT, createdAt: Date.now() };
     teams.push(team);
   }
   orphans.forEach(g => { g.teamId = team.id; });
@@ -2259,7 +2259,7 @@ function setTeamSport(id, sport) {
   const team = teams.find(t => t.id === id);
   if (!team) return;
   const next = sportProfile(sport);
-  if (team.sport === next.id) return;
+  if (teamProfile(team).id === next.id) return;
   team.sport = next.id;
   saveToStorage();
   renderTeamMenu();
