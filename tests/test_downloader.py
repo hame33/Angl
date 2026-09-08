@@ -181,10 +181,10 @@ class PickTeamTests(unittest.TestCase):
         self.assertIn("No team matching 'U18 Boys'", out)
         self.assertIn("Available teams:", out)
 
-    def test_ambiguous_match_exits_1_without_listing_all_teams(self):
-        # Current behavior is asymmetric: "no match" lists every available
-        # team, but "ambiguous match" lists only the conflicting matches and
-        # skips the "Available teams" listing.
+    def test_ambiguous_match_exits_1_and_lists_available_teams(self):
+        # Both failure paths behave the same way: "no match" and "ambiguous
+        # match" each print their own explanation and then fall through to
+        # the shared "Available teams" listing before exiting.
         buf = io.StringIO()
         with redirect_stdout(buf):
             with self.assertRaises(SystemExit) as cm:
@@ -192,7 +192,7 @@ class PickTeamTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 1)
         out = buf.getvalue()
         self.assertIn("Ambiguous team name 'U16 Girls'", out)
-        self.assertNotIn("Available teams:", out)
+        self.assertIn("Available teams:", out)
 
 
 class PickGameTests(unittest.TestCase):
@@ -221,7 +221,10 @@ class PickGameTests(unittest.TestCase):
         self.assertIn("No game matching 'Round 9 vs Sharks'", out)
         self.assertIn("Available games:", out)
 
-    def test_ambiguous_match_exits_1_without_listing_all_games(self):
+    def test_ambiguous_match_exits_1_and_lists_available_games(self):
+        # Both failure paths behave the same way: "no match" and "ambiguous
+        # match" each print their own explanation and then fall through to
+        # the shared "Available games" listing before exiting.
         buf = io.StringIO()
         with redirect_stdout(buf):
             with self.assertRaises(SystemExit) as cm:
@@ -229,7 +232,7 @@ class PickGameTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 1)
         out = buf.getvalue()
         self.assertIn("Ambiguous game name 'Round 1'", out)
-        self.assertNotIn("Available games:", out)
+        self.assertIn("Available games:", out)
 
 
 class SelectClipsTests(unittest.TestCase):

@@ -262,7 +262,6 @@ def pick_team(teams: list, name: str):
         err(f"Ambiguous team name '{name}'. Matches:")
         for m in matches:
             print(f"    • {m.get('name')}")
-        sys.exit(1)
     print("  Available teams:")
     for t in teams:
         print(f"    • {t.get('name')}")
@@ -280,7 +279,6 @@ def pick_game(games: list, name: str):
         err(f"Ambiguous game name '{name}'. Matches:")
         for m in matches:
             print(f"    • {m.get('title')}")
-        sys.exit(1)
     print("  Available games:")
     for g in games:
         print(f"    • {g.get('title')}")
