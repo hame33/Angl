@@ -47,6 +47,15 @@ the tests through the `EPILOGUE` object at the bottom of that file — if the
 function you want to test isn't on `__app` yet, add it there rather than
 restructuring `index.html` to make it reachable.
 
+There are also tests for the clip downloader's pure logic — export parsing,
+team/game/playlist selection, filename sanitising, the small helpers. They use
+only `unittest` from the standard library, so there is nothing to install here
+either, and they never touch the network or spawn yt-dlp/ffmpeg:
+
+```bash
+python3 -m unittest discover tests
+```
+
 ## The timestamp parser
 
 The timestamp parser is the delicate part of this codebase and it is commented

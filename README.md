@@ -296,6 +296,14 @@ node --test 'tests/*.test.mjs'
 The timestamp parser is the delicate part of this codebase and it is commented
 accordingly. If you touch it, run these first.
 
+The clip downloader's pure logic — export parsing, selection, filename
+sanitising — has its own tests, using only the standard library's `unittest`
+and no network:
+
+```
+python3 -m unittest discover tests
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
