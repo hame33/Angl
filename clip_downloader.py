@@ -188,8 +188,18 @@ def fmt_time(sec: float) -> str:
 def load_json(path: str):
     # Explicit utf-8, not the platform locale: every playlist record carries an
     # emoji, and a cp1252 default makes an export unreadable on Windows.
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        err(f"File not found: {path}")
+        sys.exit(1)
+    except OSError as e:
+        err(f"Could not read '{path}': {e}")
+        sys.exit(1)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        err(f"'{path}' is not a valid Angl export: {e}")
+        sys.exit(1)
     teams     = data.get("teams", [])       # absent in pre-teams exports
     games     = data.get("games", [])       # absent in pre-games exports
     playlists = data.get("playlists", [])
@@ -497,9 +507,6 @@ def main():
     print(f"{C.DIM}{'─' * 40}{C.RESET}")
 
     # 1. Load JSON
-    if not os.path.exists(args.json_file):
-        err(f"File not found: {args.json_file}")
-        sys.exit(1)
     teams, games, playlists, all_clips = load_json(args.json_file)
     info(f"Loaded {len(all_clips)} clip(s) · {len(playlists)} playlist(s) · "
          f"{len(games)} game(s) · {len(teams)} team(s)")

@@ -65,18 +65,42 @@ class LoadJsonTests(unittest.TestCase):
         self.assertEqual(playlists, data["playlists"])
         self.assertEqual(clips, data["clips"])
 
-    def test_missing_file_raises(self):
+    def test_missing_file_exits_1_with_a_clear_message(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(FileNotFoundError):
-                clip_downloader.load_json(os.path.join(tmp, "does-not-exist.json"))
+            path = os.path.join(tmp, "does-not-exist.json")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    clip_downloader.load_json(path)
+        self.assertEqual(cm.exception.code, 1)
+        out = buf.getvalue()
+        self.assertIn("File not found:", out)
+        self.assertIn(path, out)
 
-    def test_malformed_json_raises(self):
+    def test_malformed_json_exits_1_with_a_clear_message(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "bad.json")
             with open(path, "w", encoding="utf-8") as f:
                 f.write("{not valid json")
-            with self.assertRaises(json.JSONDecodeError):
-                clip_downloader.load_json(path)
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    clip_downloader.load_json(path)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("is not a valid Angl export", buf.getvalue())
+
+    def test_directory_path_exits_1_with_a_clear_message(self):
+        # Passing a directory instead of a file raises IsADirectoryError,
+        # which is an OSError but NOT a FileNotFoundError subclass, so it
+        # should be caught by the generic OSError branch.
+        self.assertFalse(issubclass(IsADirectoryError, FileNotFoundError))
+        with tempfile.TemporaryDirectory() as tmp:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    clip_downloader.load_json(tmp)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("Could not read", buf.getvalue())
 
     def test_missing_top_level_keys_default_to_empty_lists(self):
         # load_json does no shape validation: a key absent from the export
