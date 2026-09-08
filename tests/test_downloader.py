@@ -392,10 +392,20 @@ class SafeFilenameTests(unittest.TestCase):
         result = clip_downloader.safe_filename("x" * 100)
         self.assertEqual(result, "x" * 60)
 
-    def test_windows_reserved_device_name_is_not_specially_handled(self):
-        # safe_filename has no guard against Windows reserved device names
-        # (CON, NUL, COM1, ...); documenting the gap, not asserting a fix.
-        self.assertEqual(clip_downloader.safe_filename("CON"), "CON")
+    def test_windows_reserved_device_name_gets_a_trailing_underscore(self):
+        # Windows refuses CON, NUL, COM1, ... as a filename regardless of
+        # extension, so a reserved name gets a trailing underscore appended.
+        self.assertEqual(clip_downloader.safe_filename("CON"), "CON_")
+
+    def test_windows_reserved_device_name_is_matched_case_insensitively(self):
+        # The reserved-name check is case-insensitive, but the original
+        # casing of the input is preserved in the output.
+        self.assertEqual(clip_downloader.safe_filename("con"), "con_")
+
+    def test_reserved_name_check_is_exact_not_substring(self):
+        # "control" merely contains "CON"; it isn't itself a reserved name,
+        # so it must not get an underscore appended.
+        self.assertEqual(clip_downloader.safe_filename("control"), "control")
 
 
 class ExtractVideoIdTests(unittest.TestCase):

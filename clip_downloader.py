@@ -155,11 +155,21 @@ def resolve_tools():
         info(f"{C.DIM}using bundled ffmpeg from imageio-ffmpeg{C.RESET}")
 
 
+WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
 def safe_filename(s: str) -> str:
     """Turn a clip label into a safe filename."""
     s = re.sub(r'[^\w\s\-]', '', s)
     s = re.sub(r'\s+', '_', s.strip())
-    return s[:60] or "clip"
+    result = s[:60] or "clip"
+    if result.upper() in WINDOWS_RESERVED_NAMES:
+        result += "_"
+    return result
 
 
 def extract_video_id(url: str) -> str | None:
