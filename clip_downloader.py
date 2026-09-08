@@ -166,7 +166,7 @@ def extract_video_id(url: str) -> str | None:
     """Pull the YouTube video id out of any of the usual URL shapes."""
     patterns = [
         r"youtu\.be/([^?&\s/#]+)",
-        r"[?&]v=([^&\s#]+)",
+        r"youtube\.com/watch\?(?:[^#\s]*&)?v=([^&\s#]+)",
         r"youtube\.com/embed/([^?&\s/#]+)",
         r"youtube\.com/shorts/([^?&\s/#]+)",
         r"youtube\.com/v/([^?&\s/#]+)",

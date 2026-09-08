@@ -447,13 +447,11 @@ class ExtractVideoIdTests(unittest.TestCase):
     def test_non_url_text_returns_none(self):
         self.assertIsNone(clip_downloader.extract_video_id("not a url at all"))
 
-    def test_v_param_is_matched_on_any_domain_not_just_youtube(self):
-        # The [?&]v=(...) pattern isn't anchored to a YouTube domain, so it
-        # matches a v= query param on any URL. Documented as a known
-        # surprise in the current implementation, not a guarantee.
-        self.assertEqual(
-            clip_downloader.extract_video_id("https://example.com/foo?v=notarealvideoid"),
-            "notarealvideoid",
+    def test_v_param_requires_a_youtube_watch_url(self):
+        # The v=(...) pattern now requires a youtube.com/watch? context, so
+        # a v= query param on an unrelated domain no longer matches.
+        self.assertIsNone(
+            clip_downloader.extract_video_id("https://example.com/foo?v=notarealvideoid")
         )
 
 
