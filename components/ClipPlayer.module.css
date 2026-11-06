@@ -61,3 +61,6 @@
 @media (prefers-reduced-motion: reduce) {
   .play { transition: none; }
 }
+
+/* A player still loading sits invisibly over the poster, then replaces it */
+.frame iframe.loading { opacity: 0; pointer-events: none; }
