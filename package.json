@@ -13,7 +13,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test 'lib/**/*.test.ts'",
-    "check:rls": "node scripts/check-rls.mjs"
+    "check:rls": "node scripts/check-rls.mjs",
+    "check:site": "node scripts/check-site.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -10,6 +10,8 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { clipUpdateSchema, firstIssue, importBatchSchema } from '@/lib/clip-form';
 import { legacyClipId } from '@/lib/legacy/ids';
+import { linksFromText } from '@/lib/profile';
+import { TAGS } from '@/lib/public-api';
 import { clipCacheTag } from '@/lib/shared-clip';
 import { site } from '@/lib/site';
 import { createClient, currentPublisher } from '@/lib/supabase/server';
@@ -137,6 +139,7 @@ export async function saveClip(_prev: FormState, form: FormData): Promise<FormSt
   // The public page's cached copy is dropped now, not in five minutes:
   // a publish shows up straight away, and an unpublish stops straight away.
   updateTag(clipCacheTag(existing.share_id as string));
+  updateTag(TAGS.library);   // the library, the home page's latest clips and the sitemap
   revalidatePath('/studio');
   revalidatePath(`/studio/clips/${c.id}`);
 
@@ -152,4 +155,34 @@ export async function fillFromYouTube(videoId: string): Promise<VideoInfo | null
   const { isPublisher } = await currentPublisher();
   if (!isPublisher) return null;
   return lookupVideo(videoId);
+}
+
+/* ── Your profile: the home page tagline and the about page ───────────────── */
+
+const profileSchema = z.object({
+  displayName: z.string().trim().min(1, 'Your name is needed').max(100),
+  handle: z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,30}$/, 'Handle must be 3–30 lower-case letters, numbers or hyphens'),
+  tagline: z.string().trim().max(200, 'Keep the tagline under 200 characters'),
+  bio: z.string().max(10000).transform(v => v.replace(/\r\n/g, '\n').trim()),
+  links: z.string().max(5000).transform(linksFromText),
+});
+
+export async function saveProfile(_prev: FormState, form: FormData): Promise<FormState> {
+  const parsed = profileSchema.safeParse(Object.fromEntries(['displayName', 'handle', 'tagline', 'bio', 'links'].map(f => [f, String(form.get(f) ?? '')])));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? 'Something in the form is not valid.' };
+  const { user, isPublisher } = await currentPublisher();
+  if (!user) return { ok: false, message: 'You’ve been signed out. Sign in again, then save.' };
+  if (!isPublisher) return { ok: false, message: 'This account can’t publish.' };
+
+  const p = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase.from('profiles').upsert({
+    id: user.id, handle: p.handle, display_name: p.displayName, tagline: p.tagline, bio: p.bio, links: p.links,
+  }, { onConflict: 'id' });
+  if (error) {
+    return { ok: false, message: error.code === '23505' ? 'That handle is taken.' : 'Not saved: ' + error.message };
+  }
+  updateTag(TAGS.profile);
+  revalidatePath('/studio/profile');
+  return { ok: true, message: 'Saved. The home and about pages are updated.' };
 }

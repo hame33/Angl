@@ -299,10 +299,15 @@ notes, coaching points, tags and credit. Then you choose who can see it:
 private, unlisted (anyone with the link) or public. Only accounts on the
 `publishers` list can sign in to write.
 
+The public site has a home page, an about page (from your studio profile), a
+writing page fed by the Substack RSS, and a library of public clips filterable
+by tag.
+
 ```bash
 npm test             # unit tests for the site
 npm run typecheck
 npm run check:rls    # signed-out access checks against the real API (needs .env.local)
+npm run check:site -- http://localhost:3000   # crawl the sitemap: OG tags, subscribe link, status
 ```
 
 ## Contributing
