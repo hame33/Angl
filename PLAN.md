@@ -827,7 +827,7 @@ Still to do before Phase 1 is complete:
 - Deploy to Vercel and set the env vars.
 - Check playback on a real iOS and Android phone.
 - Paste the link into Substack, iMessage and WhatsApp to check the previews.
-- Run Lighthouse against the deployed URL. The local run can't count, because `i.ytimg.com` doesn't resolve for Next's image resizer in this container.
+- ~~Run Lighthouse against the deployed URL.~~ Done on `angl-six.vercel.app`, three runs on mobile. Performance scored 88, 89 and 99. Accessibility, best practices and SEO scored 100 every run. Largest Contentful Paint (the thumbnail) came in at 1.1–2.3 s, with CLS 0. The poster is served as a 23 KB AVIF instead of the 65 KB JPEG. Two costs remain: about 0.5 s of load delay, because the thumbnail had no `fetchpriority=high` (fixed on the branch: Next 16's deprecated `priority` option no longer sets it), and 140–430 ms of Total Blocking Time from React hydrating on a throttled CPU. ⚑ If the median stays below 90 after the fetch-priority fix, the next lever is the hydration cost: the page ships about 175 KB of compressed framework JS for one interactive button.
 - Add the Umami website id.
 
 - Next.js + TypeScript at the repo root, alongside the classic files.

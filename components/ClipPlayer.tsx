@@ -40,14 +40,18 @@ export function ClipPlayer({ shareId, videoId, startSeconds, endSeconds, title, 
       <div className={styles.frame}>
         {run === 0 ? (
           <button type="button" className={styles.facade} onClick={play} aria-label={`Play clip: ${title}`}>
-            {/* The page's largest element: preloaded, and resized to the
-                screen by next/image so a phone isn't sent the 1280px original. */}
+            {/* The page's largest element: preloaded at high priority, and
+                resized to the screen by next/image so a phone isn't sent the
+                1280px original. (`priority` is deprecated in Next 16 and no
+                longer sets fetchpriority, so both are spelled out.) */}
             <Image
               src={thumbnail.url}
               width={thumbnail.width}
               height={thumbnail.height}
               alt=""
-              priority
+              preload
+              fetchPriority="high"
+              loading="eager"
               sizes="(max-width: 760px) 100vw, 728px"
             />
             <span className={styles.play} aria-hidden="true">
