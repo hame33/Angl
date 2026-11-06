@@ -936,12 +936,29 @@ Decisions made while building:
   dashboard and the new fields (notes, tags, credit, visibility).
 - Mobile tabbed layout.
 
+**Status (2026-11-06): built at `/film-room`. Verified in Chromium against a stand-in YouTube API, plus a real-YouTube smoke test. Not yet deployed. Real playback still needs checking on a phone, because this container can't stream video (`*.googlevideo.com`).**
+
 Acceptance criteria:
-- [ ] Every non-dictation action in classic Angl has an equivalent, checked against a written
-  parity checklist.
-- [ ] On a phone you can paste a URL, mark start and end with "↓ current", label the clip and
-  save it in under 30 s.
-- [ ] Play-all crosses films correctly.
+- [x] Every non-dictation action in classic Angl has an equivalent: see **[docs/film-room-parity.md](docs/film-room-parity.md)**, row by row. Three rows wait for Phase 6, all part of the dictation port: dictation, the hotkey, and the learned clip length for a blank end (a blank end is 5 s for now).
+- [x] On a phone: paste link → Add film → play → ↓ Now (start) → ↓ Now (end) → type the label → + Add clip. That's 7 taps plus the label. Automated, it took 2.8 s with a fast stand-in playhead; by hand the time is the coach's. The new clip lists with its marks plus the default 2 s buffers.
+- [x] Play-all crosses films: in a category view spanning two films, it plays film 1's clip from 0:18, then loads film 2 at 0:28, and pauses after the last clip's end with "End of the list".
+
+Also verified (`filmview.cjs`, 16 checks, plus the 28 Phase 4 checks re-run):
+- Loop restarts the clip. Free scrub lets playback run past the end.
+- An untitled film takes the video's title.
+- Edits, with tags cleaned, survive a reload. Deleting a category moves its clips into the film's first remaining category.
+- On a desktop, the three columns all show and there are no tabs. Shift+→ steps to the next clip.
+- **A clip deleted in the film room isn't offered back** when classic Angl changes. Only the genuinely new one is.
+- The real YouTube IFrame API loads the no-cookie player and reports ready.
+- No sideways scroll on a phone.
+
+Decisions made while building:
+- **All film-room logic is pure functions over the library** (`lib/filmroom/ops.ts`, `view.ts`, 16 node tests). Each returns a change set, which `useLibrary` applies to the screen and commits to IndexedDB in one transaction.
+- **Deletions are remembered** as tombstones in IndexedDB. A file import is a deliberate restore, so it lifts them for what it brings back.
+- **One YouTube player per film view,** reused between clips. Classic Angl rebuilt it for every film.
+- **The address follows the view** (`?film=` / `?category=`). A reload, or a phone bringing a background tab back, returns to the same place, and the back gesture returns to the library. The test suite caught this bug.
+- **Visibility isn't on film-room clips yet.** Sharing needs the server, so it stays in the studio until Phase 7 joins the two.
+- **Video links are parsed more strictly than in classic Angl:** YouTube hosts only, and `live/` and mobile links are accepted.
 
 ### Phase 6 — Clip editor port, part B (dictation)
 

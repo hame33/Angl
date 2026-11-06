@@ -1,71 +1,73 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { bringInClassic, checkClassic, type ClassicStatus } from '@/lib/local/classic-sync';
-import { countLibrary, groupLibrary } from '@/lib/local/group';
-import { getAll, getMeta, openLibrary, putAll } from '@/lib/local/idb';
+import { useCallback, useEffect, useState } from 'react';
+import { getMeta } from '@/lib/local/idb';
 import { buildExport, readExport } from '@/lib/model/export';
-import type { LegacyExtras, LocalLibrary } from '@/lib/model/types';
+import type { Clip, LegacyExtras } from '@/lib/model/types';
+import type { Selection } from '@/lib/filmroom/view';
 import { newItems } from '@/lib/legacy/to-v5';
-import { clock } from '@/lib/text';
+import { Dashboard, type Notice } from './Dashboard';
+import { FilmView } from './FilmView';
+import { useLibrary } from './useLibrary';
 import s from './film-room.module.css';
 
-type Notice = { tone: 'ok' | 'bad' | 'info'; text: string } | null;
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const EMPTY: LocalLibrary = { teams: [], films: [], clips: [] };
 
 /*
- * The film room's library, kept in this browser (Phase 4). Phase 5 adds the
- * player and clip editing here; for now it shows what is stored, brings in
- * classic Angl's library when served from the same address, and exports and
- * imports Angl files.
+ * The film room: the library (dashboard) and one film at a time. The
+ * browser's back button steps from a film back to the library, so a phone's
+ * back gesture does what a coach expects instead of leaving the page.
  */
 export function FilmRoom() {
-  const db = useRef<IDBDatabase | null>(null);
-  const [lib, setLib] = useState<LocalLibrary | null>(null);
-  const [classic, setClassic] = useState<ClassicStatus | null>(null);
+  const api = useLibrary();
+  const { lib } = api;
+  const [teamId, setTeamId] = useState<string | null | undefined>(undefined);
+  const [sel, setSelState] = useState<Selection | null>(null);
+  const [startWith, setStartWith] = useState<Clip | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
-  const reload = useCallback(async () => {
-    const d = db.current!;
-    const [teams, films, clips] = await Promise.all([getAll(d, 'teams'), getAll(d, 'films'), getAll(d, 'clips')]);
-    setLib({ teams, films, clips });
-  }, []);
-
+  // Land on a real team rather than the mixed view, as classic Angl does — and
+  // reopen the film or category the address names, so a reload (or a phone
+  // bringing the tab back) returns to where the coach was.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        db.current = await openLibrary();
-        let status: ClassicStatus = { kind: 'none' };
-        try { status = await checkClassic(db.current, window.localStorage); }
-        catch { /* storage blocked (private mode): the film room still works from its own store */ }
-        if (cancelled) return;
-        setClassic(status);
-        await reload();
-      } catch (err) {
-        setNotice({ tone: 'bad', text: 'This browser won’t let the film room store anything (' + String((err as Error).message || err) + '). Private browsing can do that.' });
-        setLib(EMPTY);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [reload]);
+    if (!lib || teamId !== undefined) return;
+    const q = new URLSearchParams(window.location.search);
+    const film = lib.films.find(f => f.id === q.get('film'));
+    const team = film?.teamId ?? lib.teams[0]?.id ?? null;
+    setTeamId(team);
+    if (film) setSelState({ kind: 'film', filmId: film.id, category: null });
+    else if (q.get('category')) setSelState({ kind: 'category', name: q.get('category')!, teamId: team });
+    if (film || q.get('category')) history.replaceState({ filmRoom: film ? { kind: 'film', filmId: film.id, category: null } : { kind: 'category', name: q.get('category'), teamId: team } }, '', window.location.href);
+  }, [lib, teamId]);
 
-  async function bringIn() {
-    if (classic?.kind !== 'new' || !db.current) return;
-    setBusy(true);
-    await bringInClassic(db.current, classic);
-    setNotice({ tone: 'ok', text: `Brought in ${plural(classic.added.clips.length, 'clip')} from classic Angl.` });
-    setClassic({ kind: 'current' });
-    await reload();
-    setBusy(false);
-  }
+  const open = useCallback((next: Selection, play?: Clip) => {
+    setStartWith(play ?? null);
+    setSelState(next);
+    history.pushState({ filmRoom: next }, '', next.kind === 'film' ? `?film=${next.filmId}` : `?category=${encodeURIComponent(next.name)}`);
+  }, []);
+  const setSel = useCallback((next: Selection) => {
+    setStartWith(null);
+    setSelState(next);
+    history.replaceState({ filmRoom: next }, '', next.kind === 'film' ? `?film=${next.filmId}` : `?category=${encodeURIComponent(next.name)}`);
+  }, []);
+  const back = useCallback(() => {
+    if (history.state?.filmRoom) history.back();
+    else { setSelState(null); history.replaceState(null, '', '/film-room'); }
+  }, []);
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => { setStartWith(null); setSelState((e.state?.filmRoom as Selection) ?? null); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  // A film that was deleted (or never existed) falls back to the library
+  useEffect(() => {
+    if (lib && sel?.kind === 'film' && !lib.films.some(f => f.id === sel.filmId)) { setSelState(null); history.replaceState(null, '', '/film-room'); }
+  }, [lib, sel]);
 
   async function exportLibrary() {
-    if (!db.current || !lib) return;
-    const extras = (await getMeta<LegacyExtras>(db.current, 'extras')) ?? { durationModel: null, dictationLog: [] };
+    if (!api.db || !lib) return;
+    const extras = (await getMeta<LegacyExtras>(api.db, 'extras')) ?? { durationModel: null, dictationLog: [] };
     const blob = new Blob([JSON.stringify(buildExport(lib, extras), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -76,7 +78,7 @@ export function FilmRoom() {
   }
 
   async function importFile(file: File) {
-    if (!db.current || !lib) return;
+    if (!lib) return;
     setBusy(true);
     setNotice(null);
     try {
@@ -86,8 +88,10 @@ export function FilmRoom() {
       if (!r.ok) { setNotice({ tone: 'bad', text: r.message }); return; }
       const have = { teams: new Set(lib.teams.map(t => t.id)), films: new Set(lib.films.map(f => f.id)), clips: new Set(lib.clips.map(c => c.id)) };
       const added = newItems(have, r.library);
-      await putAll(db.current, added);
-      await reload();
+      // An import is a deliberate restore: it may bring back clips deleted here
+      const err = await api.run(() => ({ put: added, remove: {} }), { restore: true });
+      if (err) { setNotice({ tone: 'bad', text: err }); return; }
+      if (teamId === null && added.teams[0]) setTeamId(added.teams[0].id);
       const already = r.library.clips.length - added.clips.length;
       setNotice({
         tone: 'ok',
@@ -100,83 +104,10 @@ export function FilmRoom() {
     }
   }
 
-  if (!lib) return <main className={s.stack}><h1 className={s.h1}>Film room</h1><p className={s.muted}>Opening your library…</p></main>;
-  const counts = countLibrary(lib);
-  const groups = groupLibrary(lib);
-
+  if (!lib || teamId === undefined) return <main className={s.stack}><h1 className={s.h1}>Film room</h1><p className={s.muted}>Opening your library…</p></main>;
+  if (sel) return <FilmView key={sel.kind === 'film' ? sel.filmId : `cat:${sel.name}`} api={api} lib={lib} sel={sel} setSel={setSel} back={back} startWith={startWith} />;
   return (
-    <main className={s.stack}>
-      <div>
-        <h1 className={s.h1}>Film room</h1>
-        <p className={s.muted}>
-          {plural(counts.clips, 'clip')} · {plural(counts.films, 'film')} · {plural(counts.teams, 'team')}.
-          Kept in this browser; nothing leaves this device unless you export it or publish from the <Link href="/studio">studio</Link>.
-        </p>
-      </div>
-
-      {classic?.kind === 'imported' && (
-        <p className={`${s.notice} ${s.ok}`} role="status">
-          Brought in your classic Angl library from this browser: {plural(classic.added.clips.length, 'clip')} in {plural(classic.added.films.length, 'film')}.
-          Classic Angl is untouched and still works as before.
-          {classic.skipped.length > 0 && ` ${plural(classic.skipped.length, 'clip')} couldn’t be read and ${classic.skipped.length === 1 ? 'was' : 'were'} left out.`}
-        </p>
-      )}
-      {classic?.kind === 'new' && (
-        <div className={`${s.notice} ${s.info}`} role="status">
-          <p>Classic Angl has {plural(classic.added.clips.length, 'new clip')}
-            {classic.added.films.length ? ` in ${plural(classic.added.films.length, 'new film')}` : ''} since you last brought it in.</p>
-          <button className={s.button} onClick={bringIn} disabled={busy}>Bring {classic.added.clips.length === 1 ? 'it' : 'them'} in</button>
-        </div>
-      )}
-      {classic && 'damaged' in classic && classic.damaged.length > 0 && (
-        <p className={`${s.notice} ${s.bad}`} role="alert">
-          Part of the classic library couldn’t be read ({classic.damaged.join(', ')}). Everything else came across; classic Angl still has its copy.
-        </p>
-      )}
-      {notice && <p className={`${s.notice} ${s[notice.tone]}`} role="status">{notice.text}</p>}
-
-      <div className={s.row}>
-        <button className={s.ghost} onClick={exportLibrary} disabled={busy || !counts.clips}>Export library</button>
-        <label className={s.ghost}>
-          Import a file
-          <input type="file" accept=".json,application/json" hidden disabled={busy}
-                 onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; }} />
-        </label>
-      </div>
-
-      {groups.length === 0 ? (
-        <section className={s.empty}>
-          <p><strong>No library here yet.</strong></p>
-          <p className={s.muted}>
-            Import an Angl export with the button above, or open this page on the computer where you use classic
-            Angl, served at <code>http://localhost:8777</code> with <code>npm run local</code>. Your clips there come in automatically.
-          </p>
-        </section>
-      ) : groups.map(t => (
-        <section key={t.team?.id ?? 'none'} className={s.team}>
-          <h2 className={s.h2}>{t.team ? t.team.name : 'No team'} · {t.count}</h2>
-          {t.films.map(f => (
-            <details key={f.film.id} className={s.film}>
-              <summary><span>{f.film.title}</span><span className={s.muted}>{f.count}</span></summary>
-              {f.categories.map(c => (
-                <div key={c.name}>
-                  <div className={s.cat}>{c.emoji ? `${c.emoji} ` : ''}{c.name} · {c.clips.length}</div>
-                  {c.clips.length > 0 && (
-                    <ul className={s.clips}>
-                      {c.clips.map(clip => (
-                        <li key={clip.id}>
-                          <span>{clip.title}</span>
-                          <span className={s.muted}>{clock(clip.startSeconds)}–{clock(clip.endSeconds)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </details>
-          ))}
-        </section>
-      ))}
-    </main>
+    <Dashboard api={api} lib={lib} teamId={teamId} setTeamId={setTeamId} open={open}
+               notice={notice} setNotice={setNotice} onExport={exportLibrary} onImport={importFile} busy={busy} />
   );
 }

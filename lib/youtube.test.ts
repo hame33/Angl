@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { clipWindow, embedUrl, isVideoId, thumbnailFor, watchUrl } from './youtube.ts';
+import { clipWindow, embedUrl, isVideoId, parseVideoUrl, thumbnailFor, watchUrl } from './youtube.ts';
 
 test('a clip window rounds outward, so nothing marked is cut off', () => {
   assert.deepEqual(clipWindow(12.5, 20.5), { start: 12, end: 21 });
@@ -51,4 +51,28 @@ test('a stored maxres thumbnail keeps its size; no thumbnail falls back to hq', 
 test('a thumbnail from anywhere but YouTube is ignored', () => {
   assert.equal(thumbnailFor('abcdefghijk', 'https://evil.example/x.jpg').url,
     'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg');
+});
+
+test('links coaches paste become a video id', () => {
+  for (const link of [
+    'https://www.youtube.com/watch?v=bJJy8l6tVAI',
+    'youtube.com/watch?v=bJJy8l6tVAI&t=109s',
+    'https://m.youtube.com/watch?feature=share&v=bJJy8l6tVAI',
+    'https://youtu.be/bJJy8l6tVAI?si=abc',
+    'https://www.youtube.com/shorts/bJJy8l6tVAI',
+    'https://www.youtube.com/embed/bJJy8l6tVAI?start=3',
+    'https://www.youtube.com/live/bJJy8l6tVAI',
+    '  bJJy8l6tVAI  ',
+  ]) assert.equal(parseVideoUrl(link), 'bJJy8l6tVAI', link);
+});
+
+test('a v= parameter on another site is not a YouTube video', () => {
+  assert.equal(parseVideoUrl('https://evil.example/watch?v=bJJy8l6tVAI'), null);
+  assert.equal(parseVideoUrl('https://youtube.com.evil.example/watch?v=bJJy8l6tVAI'), null);
+});
+
+test('nonsense and bad ids are refused', () => {
+  assert.equal(parseVideoUrl(''), null);
+  assert.equal(parseVideoUrl('not a link'), null);
+  assert.equal(parseVideoUrl('https://www.youtube.com/watch?v=<script>'), null);
 });

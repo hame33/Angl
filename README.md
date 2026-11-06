@@ -307,6 +307,14 @@ Angl's address on the computer where you use it:
 npm run local        # builds and serves on http://localhost:8777, like serve.sh
 ```
 
+The film room is the clip editor, rebuilt from classic Angl for phones as
+well as laptops. Paste a YouTube link to add a film, mark clips with
+"↓ Now", and sort them into categories. Then play them one at a time, on a
+loop, or all in a row across films. Each clip can carry notes, coaching
+points, tags and credit. On a phone the tools are tabs; on a wide screen they
+are classic Angl's three columns. Every classic feature and where it went:
+[docs/film-room-parity.md](docs/film-room-parity.md).
+
 The first time you open `/film-room` there, it brings your classic library
 across: every team, film, category and clip. It only ever reads classic
 Angl's keys, never changes them, and offers anything new you add in classic

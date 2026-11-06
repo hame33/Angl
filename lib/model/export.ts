@@ -31,6 +31,7 @@ const teamSchema = z.object({
 const filmSchema = z.object({
   id: uuid, ownerId: uuid.nullable(), teamId: uuid.nullable(), title: z.string().max(300), video,
   categories: z.array(z.object({ name: z.string().max(200), emoji: z.string().max(16) })).max(200),
+  autoTitle: z.boolean().optional(),
   createdAt: iso, updatedAt: iso, legacyId: z.string().max(100).nullable(),
 });
 const clipSchema = z.object({

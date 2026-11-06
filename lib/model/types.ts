@@ -28,6 +28,7 @@ export interface Film {
   title: string;
   video: { provider: 'youtube'; videoId: string | null };
   categories: { name: string; emoji: string }[];   // classic playlists of this game, in order
+  autoTitle?: boolean;           // no title was typed: take the video's own once the player knows it
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
   legacyId: string | null;

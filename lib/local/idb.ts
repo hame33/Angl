@@ -63,3 +63,36 @@ export async function putAll(db: IDBDatabase, items: { teams?: Team[]; films?: F
   }
   await finished(tx);
 }
+
+export interface Tombstones { teams: string[]; films: string[]; clips: string[] }
+const TOMBSTONE_KEY = 'deleted';
+
+/*
+ * One change set, in one transaction: puts, deletes, and the tombstones that
+ * remember what was deleted. Without those, the next "bring in from classic
+ * Angl" would offer a deleted clip straight back (PLAN.md Phase 4 note).
+ * `restore` lifts tombstones for ids a file import is bringing back on purpose.
+ */
+export async function commit(db: IDBDatabase, ch: {
+  put?: { teams?: Team[]; films?: Film[]; clips?: Clip[] };
+  remove?: { teams?: string[]; films?: string[]; clips?: string[] };
+  restore?: boolean;
+}): Promise<void> {
+  const put = ch.put ?? {}, remove = ch.remove ?? {};
+  const tx = db.transaction(['teams', 'films', 'clips', 'meta'], 'readwrite');
+  const meta = tx.objectStore('meta');
+  const current = ((await done(meta.get(TOMBSTONE_KEY)) as Row['meta'] | undefined)?.value as Tombstones | undefined) ?? { teams: [], films: [], clips: [] };
+  const next: Tombstones = { teams: [...current.teams], films: [...current.films], clips: [...current.clips] };
+  for (const s of ['teams', 'films', 'clips'] as const) {
+    const os = tx.objectStore(s);
+    for (const row of put[s] ?? []) os.put(row);
+    for (const id of remove[s] ?? []) { os.delete(id); if (!next[s].includes(id)) next[s].push(id); }
+    if (ch.restore) { const back = new Set((put[s] ?? []).map(r => r.id)); next[s] = next[s].filter(id => !back.has(id)); }
+  }
+  meta.put({ key: TOMBSTONE_KEY, value: next });
+  await finished(tx);
+}
+
+export async function getTombstones(db: IDBDatabase): Promise<Tombstones> {
+  return (await getMeta<Tombstones>(db, TOMBSTONE_KEY)) ?? { teams: [], films: [], clips: [] };
+}

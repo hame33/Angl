@@ -12,7 +12,7 @@ import { readLegacy, type ReadOnlyStorage } from '../legacy/read.ts';
 import { fingerprint, legacyToV5, newItems } from '../legacy/to-v5.ts';
 import type { SkippedClip } from '../legacy/convert.ts';
 import type { LocalLibrary } from '../model/types.ts';
-import { getAll, getMeta, putAll } from './idb.ts';
+import { getAll, getMeta, getTombstones, putAll } from './idb.ts';
 
 export interface ClassicMeta { fingerprint: string; importedAt: string; lastSyncedAt: string }
 
@@ -22,9 +22,14 @@ export type ClassicStatus =
   | { kind: 'imported'; added: LocalLibrary; skipped: SkippedClip[]; damaged: string[] }   // first load did it
   | { kind: 'new'; added: LocalLibrary; fingerprint: string; skipped: SkippedClip[]; damaged: string[] };
 
+/* What the film room already has — or had, and was deleted on purpose */
 async function haveIds(db: IDBDatabase) {
-  const [teams, films, clips] = await Promise.all([getAll(db, 'teams'), getAll(db, 'films'), getAll(db, 'clips')]);
-  return { teams: new Set(teams.map(t => t.id)), films: new Set(films.map(f => f.id)), clips: new Set(clips.map(c => c.id)) };
+  const [teams, films, clips, gone] = await Promise.all([getAll(db, 'teams'), getAll(db, 'films'), getAll(db, 'clips'), getTombstones(db)]);
+  return {
+    teams: new Set([...teams.map(t => t.id), ...gone.teams]),
+    films: new Set([...films.map(f => f.id), ...gone.films]),
+    clips: new Set([...clips.map(c => c.id), ...gone.clips]),
+  };
 }
 
 export async function checkClassic(db: IDBDatabase, storage: ReadOnlyStorage): Promise<ClassicStatus> {

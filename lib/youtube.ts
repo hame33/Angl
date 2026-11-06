@@ -58,3 +58,24 @@ export function thumbnailFor(videoId: string, stored: string | null): Thumbnail 
   }
   return { url: `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`, width: 480, height: 360 };
 }
+
+/*
+ * A pasted link → a YouTube video id, or null. Only YouTube's own hosts
+ * count: "?v=" on some other site is not a YouTube video. Accepts the forms
+ * coaches actually paste — watch, youtu.be, shorts, embed, live, mobile — with
+ * or without the https:// in front. A bare 11-character id works too.
+ */
+const YT_HOSTS = /^(?:www\.|m\.|music\.)?(?:youtube\.com|youtube-nocookie\.com)$/i;
+export function parseVideoUrl(input: string): string | null {
+  const text = input.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(text)) return text;
+  let url: URL;
+  try { url = new URL(/^[a-z]+:\/\//i.test(text) ? text : `https://${text}`); } catch { return null; }
+  const host = url.hostname.toLowerCase();
+  let id: string | null = null;
+  if (host === 'youtu.be') id = url.pathname.split('/')[1] ?? null;
+  else if (YT_HOSTS.test(host)) {
+    id = url.searchParams.get('v') ?? /^\/(?:embed|shorts|live|v)\/([^/?#]+)/.exec(url.pathname)?.[1] ?? null;
+  }
+  return isVideoId(id) ? id : null;
+}
