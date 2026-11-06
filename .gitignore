@@ -3,9 +3,10 @@ angl-env/
 venv/
 .venv/
 
-# Exported clips and Angl JSON
-clips/
-my_clips/
+# Exported clips and Angl JSON. Anchored to the root: an unanchored `clips/`
+# would also ignore the app/clips/ route.
+/clips/
+/my_clips/
 *.mp4
 
 # Python
@@ -14,3 +15,13 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Next.js app
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+.env
+.vercel

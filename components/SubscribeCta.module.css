@@ -1,0 +1,27 @@
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  padding: 18px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: var(--radius-lg);
+}
+.head { font-weight: 600; font-size: 16px; }
+.sub { color: var(--text2); font-size: 14px; margin-top: 2px; }
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #160b03;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.button:hover { filter: brightness(1.08); }
+.button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }

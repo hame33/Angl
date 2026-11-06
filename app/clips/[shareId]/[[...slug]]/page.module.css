@@ -1,0 +1,39 @@
+.main { display: grid; gap: 22px; }
+
+.head h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.meta { color: var(--text2); font-size: 14px; margin-top: 6px; }
+.credit { font-size: 15px; margin-top: 4px; overflow-wrap: anywhere; }
+.meta + .credit { margin-top: 8px; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin-top: 12px; }
+.tags li {
+  padding: 3px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 13px;
+}
+
+.notes { display: grid; gap: 12px; white-space: pre-line; overflow-wrap: anywhere; }
+
+.points h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 8px;
+}
+.points ul { display: grid; gap: 6px; padding-left: 20px; }
+
+.source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+@media (min-width: 700px) {
+  .head h1 { font-size: 30px; }
+}
