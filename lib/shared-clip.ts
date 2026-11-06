@@ -19,7 +19,13 @@ export interface SharedClip {
   videoId: string;
   startSeconds: number;
   endSeconds: number;
-  credit: { coachName: string | null; url: string | null; sourceTitle: string | null };
+  credit: {
+    coachName: string | null;    // the coach in the clip
+    url: string | null;          // the coach's own channel or site
+    sourceTitle: string | null;  // the source video's title
+    channelName: string | null;  // who uploaded it, when that isn't the coach
+    channelUrl: string | null;
+  };
   thumbnailUrl: string | null;
   publishedAt: string | null;
   updatedAt: string;
@@ -83,6 +89,8 @@ export function parseSharedClip(raw: unknown): SharedClip | null {
       coachName: str(credit.coachName),
       url: httpsUrl(credit.url),
       sourceTitle: str(credit.sourceTitle),
+      channelName: str(credit.channelName),
+      channelUrl: httpsUrl(credit.channelUrl),
     },
     thumbnailUrl: httpsUrl(r.thumbnailUrl),
     publishedAt: str(r.publishedAt),

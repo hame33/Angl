@@ -94,7 +94,7 @@ export default async function ClipPage({ params }: { params: Params }) {
   const thumb = thumbnailFor(clip.videoId, clip.thumbnailUrl);
   const length = Math.round(clip.endSeconds - clip.startSeconds);
   const source = watchUrl(clip.videoId, clip.startSeconds);
-  const { coachName, url: coachUrl, sourceTitle } = clip.credit;
+  const { coachName, url: coachUrl, sourceTitle, channelName, channelUrl } = clip.credit;
 
   return (
     <main className={styles.main}>
@@ -112,14 +112,28 @@ export default async function ClipPage({ params }: { params: Params }) {
         <p className={styles.meta}>
           {length}s clip · {clock(clip.startSeconds)}–{clock(clip.endSeconds)} in the source video
         </p>
+        {/* The coach and the uploader are credited separately: they are often
+            different people (a Calipari practice posted by HawgBeat.com). */}
+        {coachName && (
+          <p className={styles.credit}>
+            Coach:{' '}
+            {coachUrl
+              ? <a href={coachUrl} rel="noopener" data-umami-event="credit_click">{coachName}</a>
+              : <span>{coachName}</span>}
+          </p>
+        )}
         <p className={styles.credit}>
           Footage:{' '}
-          {coachName
-            ? (coachUrl
-                ? <a href={coachUrl} rel="noopener" data-umami-event="credit_click">{coachName}</a>
-                : <span>{coachName}</span>)
-            : <span>YouTube</span>}
-          {sourceTitle && <> — <a href={source} rel="noopener" data-umami-event="source_click">{sourceTitle}</a></>}
+          <a href={source} rel="noopener" data-umami-event="source_click">{sourceTitle || 'the source video'}</a>
+          {channelName && channelName !== coachName && (
+            <>
+              {' '}by{' '}
+              {channelUrl
+                ? <a href={channelUrl} rel="noopener" data-umami-event="channel_click">{channelName}</a>
+                : <span>{channelName}</span>}
+            </>
+          )}
+          {' '}on YouTube
         </p>
         {clip.tags.length > 0 && (
           <ul className={styles.tags} aria-label="Tags">

@@ -2,7 +2,8 @@
 
 .head h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.015em; overflow-wrap: anywhere; }
 .meta { color: var(--text2); font-size: 14px; margin-top: 6px; }
-.credit { font-size: 15px; margin-top: 6px; overflow-wrap: anywhere; }
+.credit { font-size: 15px; margin-top: 4px; overflow-wrap: anywhere; }
+.meta + .credit { margin-top: 8px; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin-top: 12px; }
 .tags li {

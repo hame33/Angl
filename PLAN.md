@@ -178,6 +178,8 @@ export interface Clip extends LibraryItemBase {
     coachName: string | null;  // who made the source video, e.g. YouTube channel name
     url: string | null;        // their channel or site
     sourceTitle: string | null;// the source video's title
+    channelName: string | null;// who uploaded it, when that isn't the coach (oEmbed author_name)
+    channelUrl: string | null; // their channel (oEmbed author_url)
   };
   thumbnailUrl: string | null; // resolved once at publish time (maxres if it exists, else hq)
   filmId: Uuid | null;
@@ -818,8 +820,10 @@ Decisions made while building:
 - Tag chips aren't links yet, because `/library` arrives in Phase 3.
 - The site name comes from `NEXT_PUBLIC_SITE_NAME`, set to "Beyond The Arc" on Vercel.
 
+- The coach and the uploading channel are credited separately (migration `…000200_clip_source_channel`). Example: a John Calipari practice posted by HawgBeat.com.
+- First real clip seeded: `/clips/yxdjD7WfpLk/2-on-1-using-the-backboard`.
+
 Still to do before Phase 1 is complete:
-- Seed your real first clip: you choose the video, then run the SQL.
 - Deploy to Vercel and set the env vars.
 - Check playback on a real iOS and Android phone.
 - Paste the link into Substack, iMessage and WhatsApp to check the previews.
