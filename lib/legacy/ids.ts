@@ -39,3 +39,19 @@ export async function uuidV5(name: string, namespace: string): Promise<string> {
 export function legacyClipId(ownerId: string, c: { legacyId: string; videoId: string | null; startSeconds: number; endSeconds: number }): Promise<string> {
   return uuidV5([ownerId, c.legacyId, c.videoId ?? '', c.startSeconds, c.endSeconds].join('|'), LEGACY_CLIP_NAMESPACE);
 }
+
+/*
+ * Ids for a library that only lives in this browser (no owner yet). Same idea:
+ * the same classic team, game or clip always gets the same id, so reading the
+ * classic library again — or importing the same export twice — adds nothing.
+ */
+export const legacyLocalId = {
+  // A team or game the migrations invented ("migrated-1") is only unique within
+  // one library, so its id also takes something that tells two libraries apart:
+  // a game's film (which never changes for a classic game), an invented team's name.
+  team: (legacyId: string, name: string) =>
+    uuidV5(legacyId.startsWith('migrated-') ? `team|${legacyId}|${name}` : `team|${legacyId}`, LEGACY_CLIP_NAMESPACE),
+  film: (legacyId: string, videoId: string | null) => uuidV5(`film|${legacyId}|${videoId ?? ''}`, LEGACY_CLIP_NAMESPACE),
+  clip: (c: { legacyId: string; videoId: string | null; startSeconds: number; endSeconds: number }) =>
+    uuidV5(['clip', c.legacyId, c.videoId ?? '', c.startSeconds, c.endSeconds].join('|'), LEGACY_CLIP_NAMESPACE),
+};

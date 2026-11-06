@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test 'lib/**/*.test.ts'",
     "check:rls": "node scripts/check-rls.mjs",
-    "check:site": "node scripts/check-site.mjs"
+    "check:site": "node scripts/check-site.mjs",
+    "local": "next build && next start -p 8777",
+    "local:dev": "next dev -p 8777"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
