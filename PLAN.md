@@ -827,7 +827,7 @@ Still to do before Phase 1 is complete:
 - Deploy to Vercel and set the env vars.
 - Check playback on a real iOS and Android phone.
 - Paste the link into Substack, iMessage and WhatsApp to check the previews.
-- Run Lighthouse against the deployed URL. The local run can't count, because `i.ytimg.com` doesn't resolve for Next's image resizer in this container.
+- ~~Run Lighthouse against the deployed URL.~~ Done on `angl-six.vercel.app`, three runs on mobile. Performance scored 88, 89 and 99. Accessibility, best practices and SEO scored 100 every run. Largest Contentful Paint (the thumbnail) came in at 1.1–2.3 s, with CLS 0. The poster is served as a 23 KB AVIF instead of the 65 KB JPEG. Two costs remain: about 0.5 s of load delay, because the thumbnail had no `fetchpriority=high` (fixed on the branch: Next 16's deprecated `priority` option no longer sets it), and 140–430 ms of Total Blocking Time from React hydrating on a throttled CPU. ⚑ If the median stays below 90 after the fetch-priority fix, the next lever is the hydration cost: the page ships about 175 KB of compressed framework JS for one interactive button.
 - Add the Umami website id.
 
 - Next.js + TypeScript at the repo root, alongside the classic files.
@@ -1015,6 +1015,6 @@ Later, unplanned: AI features (§7), `ANGL_MODE=multi`, a PWA/offline shell.
 | D9 | Web Speech API support on iOS Safari and in-app browsers is patchy. Mobile dictation may not work everywhere. | Hide the mic where it isn't supported. Typing always works. |
 | D10 | Node's built-in TypeScript stripping for tests means no enums, no parameter properties, and explicit `.ts` import extensions. | Accept those limits. If they get in the way, fall back to Vitest as one dev dependency. |
 | D11 | Should printed plans have QR codes for clips? That needs a small dependency. | No. Print the short URL. |
-| D12 | iOS can require a second tap to start playback after the facade swaps in the iframe. The iframe is requested with `autoplay=1` and `allow="autoplay"`. Headless Chromium starts the embed correctly, but **real iOS and Android are untested** until the site is deployed. | If iOS needs a second tap, accept it. |
+| D12 | ✅ **Decided (tested on your iPhone):** iOS did need a second tap. iOS only starts a video with sound when the tap lands inside the player's own frame, so on iOS the real YouTube player now loads without autoplay once the page has finished loading. The thumbnail still paints first, and the visitor's single tap lands on YouTube's own play button. Android and desktop keep the tap-to-load thumbnail. The cost: iOS visitors download YouTube's player even if they never press play. | — |
 | D13 | ✅ **Decided:** pinned at Phase 1 to Next.js 16.4.5 and React 19.3.1, with TypeScript **6.0.3**, not 7. Next 16.4's built-in type check needs the TypeScript JavaScript API, which TypeScript 7 (the native compiler) doesn't ship. Revisit when Next supports 7. | — |
 | D14 | Licence: MIT for everything, or AGPL for the new app to stop competing hosted copies? | MIT, as you said. |
