@@ -22,3 +22,20 @@ jobs:
         with:
           python-version: '3.13'
       - run: python3 -m unittest discover tests
+
+  # The Next.js site (app/, lib/, components/). Classic Angl above stays
+  # buildless and is tested on its own.
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

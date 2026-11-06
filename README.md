@@ -271,11 +271,40 @@ coach something else, or something the same and better, please open an issue: th
 is a template for exactly that, [A sport assumption I hit][sport-issue], and it is
 still the most useful contribution to this project.
 
+## The website (in progress)
+
+Angl is growing into the base of a coaching website: public share pages for
+clips, then drills and session plans. That is a separate Next.js app living
+alongside the classic one in this repo. [PLAN.md](PLAN.md) has the whole plan.
+
+**Classic Angl is unchanged.** `index.html`, `serve.sh` and the downloader work
+exactly as described above, need nothing installed, and keep reading your clips
+from the same `filmroom_` keys. Nothing in the new app writes to them.
+
+The website needs Node 22.18+ and a Supabase project:
+
+```bash
+cp .env.example .env.local    # fill in the Supabase URL and publishable key
+npm install
+npm run dev                   # http://localhost:3000
+```
+
+The database schema is in `supabase/migrations/`. A shared clip lives at
+`/clips/<share-id>`. It plays the embedded YouTube clip between its start and
+end times, credits the original video, and has link-preview tags.
+
+```bash
+npm test             # unit tests for the site
+npm run typecheck
+npm run check:rls    # signed-out access checks against the real API (needs .env.local)
+```
+
 ## Contributing
 
-Issues and pull requests are welcome. The project is deliberately small: one HTML
+Issues and pull requests are welcome. Classic Angl is deliberately small: one HTML
 file, one Python script, no build step and no framework. Please keep it that way —
-a change that adds a toolchain needs to earn it.
+a change that adds a toolchain to it needs to earn it. The website has a
+toolchain, and every dependency in it is listed and justified in PLAN.md.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the details: the no-toolchain rule, the
 `filmroom_` storage keys that must never be renamed, and what to run before

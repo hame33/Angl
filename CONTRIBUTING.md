@@ -8,9 +8,24 @@ person can still read in an evening.
 A few things are load-bearing. They are listed here so you don't have to find
 them out from a review comment.
 
-## Keep the toolchain empty
+## Two apps, two rules
 
-Angl is one HTML file and one Python script. There is no build step, no
+This repo holds two things:
+
+- **Classic Angl**: `index.html`, `serve.sh`, `clip_downloader.py` and `tests/`.
+  The no-toolchain rule below applies to it in full.
+- **The website**: `app/`, `components/`, `lib/` and `supabase/`. This is a
+  Next.js app, so it has a toolchain. Its dependency rule is that every package
+  is listed and justified in [PLAN.md](PLAN.md) §9. A new package needs the same
+  kind of argument as below — "impossible to do correctly by hand, and here is
+  why" — added to that table in the same pull request.
+
+The website must never write to, rename or remove a `filmroom_` key (see below).
+It reads them, nothing more.
+
+## Keep the toolchain empty (classic Angl)
+
+Classic Angl is one HTML file and one Python script. There is no build step, no
 framework, no bundler, no transpiler, and no `node_modules`. You clone it, you
 serve it, it runs.
 
@@ -29,6 +44,18 @@ video and `imageio-ffmpeg` to cut it — because doing either by hand is not
 reasonable. That is the standard to clear.
 
 ## Running the tests
+
+The website's tests are plain `node --test` against TypeScript, using Node's
+built-in type stripping. So there's no test runner to install, but no TS enums
+or parameter properties either, and imports between `lib/` modules carry their
+`.ts` extension:
+
+```bash
+npm test
+npm run typecheck
+```
+
+Classic Angl's tests:
 
 There are tests for the dictation parser and the clip-length model. They lift
 the `<script>` block out of `index.html` and run it in a Node sandbox with a
