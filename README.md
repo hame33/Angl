@@ -293,6 +293,12 @@ The database schema is in `supabase/migrations/`. A shared clip lives at
 `/clips/<share-id>`. It plays the embedded YouTube clip between its start and
 end times, credits the original video, and has link-preview tags.
 
+The studio at `/studio` is where clips get published. You sign in with an
+emailed link, import an export from classic Angl, and open any clip to add
+notes, coaching points, tags and credit. Then you choose who can see it:
+private, unlisted (anyone with the link) or public. Only accounts on the
+`publishers` list can sign in to write.
+
 ```bash
 npm test             # unit tests for the site
 npm run typecheck

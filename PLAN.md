@@ -854,22 +854,36 @@ Acceptance criteria:
 ### Phase 2 — Publishing (only me)
 
 - Magic-link sign-in with sign-ups disabled.
-- `/studio/publish`: import an Angl export (v1–v4). This uses `lib/legacy` (the ported
+- `/studio`: import an Angl export (v1–v4). This uses `lib/legacy` (the ported
   migrations and converter) and the ported migration tests.
 - Pick clips, then edit title, notes, coaching points, tags and credit. Credit is auto-filled
   from oEmbed.
 - Set visibility, publish, edit and unpublish. Publishing revalidates the page and stores
   `thumbnailUrl`.
 
+**Status (2026-11-06): built and verified locally against the real database. Not yet deployed. You need to set up the sign-in emails (below) before the first sign-in.**
+
 Acceptance criteria:
-- [ ] Importing a real `angl-clips.json` lists every clip grouped by team, film and category,
-  matching classic Angl's counts.
-- [ ] The ported TS migration tests pass and produce the same results as the classic ones on
-  the same fixtures.
-- [ ] Publishing a clip makes its page live within 60 s with your notes. Editing its notes
-  updates the live page. Unpublishing returns a 404.
-- [ ] Re-importing the same file creates no duplicates (UUID v5 ids).
-- [ ] A second, non-publisher account (created by hand for the test) cannot insert rows.
+- [x] Importing an export lists every clip grouped by team, film and category, with counts. Checked with a 252-clip v4 file: 251 imported in two batches and 1 broken clip skipped with its reason. ⚑ Still to do: your own real `angl-clips.json`.
+- [x] The TS migrations give the same result as classic Angl. `lib/legacy/migrate.test.ts` runs both, the classic code lifted from `index.html`, on six fixtures (v1, v1 with a missing film or playlist, categories only, v2, v4, half-migrated) and compares them.
+- [x] Publishing makes the page live with your notes, about 5 s after Save. An edit shows on the live page at once, and unpublishing returns 404 at once (`updateTag` on the clip's cache tag).
+- [x] Re-importing the same file adds nothing ("Added 0; 251 already here"). A re-import never overwrites notes you've written since (`ON CONFLICT (id) DO NOTHING`).
+- [x] A signed-in non-publisher sees "This account can't publish", and the database itself refuses their writes (RLS error `42501`).
+
+Decisions made while building:
+- **No `/studio/publish` page.** The studio home is the import panel plus your clip list, and each clip opens an editor. Publishing is the visibility field on that editor.
+- **Import uploads every clip, as private.** The whole library is in Supabase from then on, and nothing is public until you choose it clip by clip. Only clip rows are uploaded: the export's dictation log, settings and duration model stay on your machine.
+- **Ids:** an imported clip's id is UUID v5 of owner, classic id, film and times. The owner is included so two coaches importing the same library never collide. The film and times are included because classic ids are only unique within one browser. That's also why migration `…000300` drops the one-classic-id-per-owner index.
+- **Teams and films aren't tables yet.** Each imported clip carries its team, film, category and emoji in `legacy`, which the studio groups by. The `teams` and `films` tables arrive with the full editor (Phases 4–7).
+- **The editor form is submitted by hand,** not with `<form action>`. React 19 resets a form's fields after a form action, back to the values the page loaded with, and the next save would write those old values back. The end-to-end test caught this.
+- **Every studio page checks the user itself.** Layouts and pages render in parallel, so a layout's redirect doesn't stop the page running.
+- **`proxy.ts`** (Next 16's name for middleware) refreshes the session on `/studio` and `/auth` only. Share pages are unaffected: still cached, no cookie, none of the sign-in code.
+
+⚑ **Setup only you can do, in the Supabase dashboard** (no tool here can change auth settings):
+1. Authentication → URL Configuration → **Site URL**: `https://angl-six.vercel.app`.
+2. **Redirect URLs**: add `https://angl-six.vercel.app/auth/confirm` and `http://localhost:3000/auth/confirm`.
+3. Authentication → Sign In / Providers → turn off **Allow new users to sign up**. The sign-in form already never creates accounts (`shouldCreateUser: false`), and writes need a publisher row. This is a third lock.
+4. ⚑ Supabase's built-in email sender is rate-limited to a few emails an hour, which is fine for one publisher. If sign-in links stop arriving, either wait or set up your own SMTP under Authentication → Emails.
 
 ### Phase 3 — Site pages
 
