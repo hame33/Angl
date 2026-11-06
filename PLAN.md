@@ -459,9 +459,10 @@ banner saying the new version exists. It is never deleted in this plan.
 Putting a second copy of the library into `localStorage` on the same origin could use up the
 shared 5 MB quota. **Classic Angl's own saves would then start failing.** So the new app
 stores its data in IndexedDB. That uses a different and much larger quota, and only needs a
-small hand-written wrapper of about 60 lines, with no dependency. The only `localStorage` key
-the new app adds is `filmroom_v2_meta` (fingerprint and migrated-at). It is prefixed
-`filmroom_` to follow CONTRIBUTING.md's rule for new keys.
+small hand-written wrapper of about 60 lines, with no dependency. *(Changed in Phase 4:)* the
+new app adds **no** `localStorage` key at all. The fingerprint and the import date live in
+IndexedDB's `meta` store next to the library, so this origin's `localStorage` stays exactly
+as classic Angl left it.
 
 ### ⚑ The origin problem (the critical constraint)
 
@@ -912,15 +913,22 @@ Decisions made while building:
 - Fingerprint and "bring in new clips" prompt.
 - v5 export/import.
 
-Acceptance criteria:
-- [ ] With legacy keys seeded (pre-games, pre-teams and current shapes), the studio shows the
-  full library on first load.
-- [ ] **Every `filmroom_*` key is byte-identical before and after**, and no key is removed
-  (automated test).
-- [ ] A second load imports nothing. Adding a clip in classic Angl and then reloading the
-  studio offers exactly one new clip.
-- [ ] A corrupt `filmroom_clips` costs only clips. Teams, films and categories still import.
-- [ ] Export v5 followed by import v5 round-trips with deep equality.
+**Status (2026-11-06): built and verified in Chromium on `localhost:8777`. Not yet deployed.**
+
+Acceptance criteria. All of these were checked by `filmroom.cjs` in real Chromium (28 checks) and by node tests (98 in total):
+- [x] With legacy keys seeded, `/film-room` shows the whole library on first load. Pre-games: 2 clips, 1 film, 1 team. Pre-teams: 1, 1, 1. Current: 3, 2, 2. `lib/legacy/read.test.ts` also runs classic Angl's own `loadFromStorage()` on the same keys and gets the same library for all three shapes.
+- [x] **Every `filmroom_*` key is byte-identical before and after**, with none added or removed. This is checked in the browser after the first load, after a reload and after bringing in new clips. In node, a recording stand-in shows `getItem` is the only method ever called. The film room writes nothing to `localStorage`.
+- [x] A second load imports nothing. One clip added in classic Angl is offered as exactly "1 new clip", bringing it in adds exactly that clip, and nothing is offered afterwards.
+- [x] A corrupt `filmroom_clips` costs only clips: 2 films and 2 teams still came across, the page names what couldn't be read, and the unreadable value is left as it was, with no `_corrupt` twin.
+- [x] Export v5 → import into an empty browser → export again gives the same library. Re-importing adds nothing. The export never carries the BYO API key.
+- [x] Also checked: after the film room read a library, **real classic `index.html`**, served on the same port, loaded the same library (1 game, 2 clips) with no page errors.
+
+Decisions made while building:
+- **It lives at `/film-room`, not inside `/studio`.** It works without signing in, as local-first requires, while `/studio` stays the signed-in publishing side. Phase 5 adds the player and editing here, and Phase 7's sync joins the two.
+- **To use it with classic Angl's library, run the site on port 8777** (`npm run local`) on the computer where classic Angl lives. On any other address there are no classic keys to read, so you start with Import a file.
+- **Stable ids:** teams, films and clips get UUID v5 ids from their classic ids. A film's id also includes its video, and an invented team's id includes its name, so two pre-games libraries from different machines can't collide. Pre-games migrations use a counter instead of `Math.random`, so the same library always produces the same ids, whether read from storage or from an old export file.
+- **Bringing things in only adds; it never overwrites.** A clip renamed in classic Angl after the first import keeps its film-room version. ⚑ When Phase 5 lets you delete clips here, deleted ids must be remembered, or the next "bring in" would offer them again.
+- The classic extras (duration model, dictation log, settings, hotkey) are stored at the first import, ready for Phase 6. The settings include the BYO API key. It stays in this browser and is never exported or synced.
 
 ### Phase 5 — Clip editor port, part A (player and library)
 

@@ -299,6 +299,20 @@ notes, coaching points, tags and credit. Then you choose who can see it:
 private, unlisted (anyone with the link) or public. Only accounts on the
 `publishers` list can sign in to write.
 
+The film room at `/film-room` keeps a library in your browser, no account
+needed. It's being rebuilt here from classic Angl. Run the site on classic
+Angl's address on the computer where you use it:
+
+```bash
+npm run local        # builds and serves on http://localhost:8777, like serve.sh
+```
+
+The first time you open `/film-room` there, it brings your classic library
+across: every team, film, category and clip. It only ever reads classic
+Angl's keys, never changes them, and offers anything new you add in classic
+Angl later. It exports and imports Angl files: version 5, plus classic
+exports from versions 1–4.
+
 The public site has a home page, an about page (from your studio profile), a
 writing page fed by the Substack RSS, and a library of public clips filterable
 by tag.
