@@ -570,9 +570,9 @@ These are your top priority, so they come before everything else.
     back to `hqdefault.jpg`, then stores the result. Scrapers therefore never get a missing
     image.
 - **Every public page has:**
-  - a `<SubscribeCta>` component with a button to `{substack_url}/subscribe` (⚑ D2), placed
+  - a `<SubscribeCta>` component with a button to `https://hamishdawson33.substack.com/subscribe` (from `NEXT_PUBLIC_SUBSTACK_URL`, D2), placed
     after the content and in the footer;
-  - the analytics script (⚑ D3).
+  - the Umami analytics script (D3).
   - Analytics events: page view, `clip_play`, `subscribe_click` and `source_click`.
 - **Performance budget:** Lighthouse mobile performance ≥ 90 and LCP < 2.5 s on simulated
   4G. The LCP element is the thumbnail, which is preloaded. The page must not fetch any
@@ -975,10 +975,10 @@ Later, unplanned: AI features (§7), `ANGL_MODE=multi`, a PWA/offline shell.
 
 | # | Question | My default if you don't decide |
 |---|---|---|
-| D1 | `clip_downloader.py` downloads YouTube video, which contradicts "embeds only". YouTube's terms also restrict downloading, and a public site will link to this repo. Should we keep it as a separate local tool for your own film, move it to a separate repo, or delete it? | Leave it untouched in Phase 1. Don't port it and don't link it from the site. Decide before Phase 3, when the public site goes live. |
-| D2 | What is Beyond The Arc's Substack URL? Is there a custom domain? | Configured through the `NEXT_PUBLIC_SUBSTACK_URL` env var. |
-| D3 | Which analytics tool? Options are Plausible (paid, hosted), Umami (open source, self-host or cloud free tier) or Vercel Web Analytics. I haven't checked current pricing. | Umami Cloud, behind a single env-configured script tag so it is easy to swap. It's cookieless, so no consent banner, but that is not legal advice for your jurisdiction. |
-| D4 | What hosting and domain? Vercel's free Hobby tier is for non-commercial use, and a site that promotes a Substack might count as commercial. | Vercel. Confirm the plan tier before launch. |
+| D1 | ✅ **Decided:** leave `clip_downloader.py` in the repo untouched. It is not part of the website: it isn't ported and isn't linked from any page. | — |
+| D2 | ✅ **Decided:** Substack is `https://hamishdawson33.substack.com`. The CTA links to `/subscribe` and the feed is `/feed`. It is set through the `NEXT_PUBLIC_SUBSTACK_URL` env var, with this as the default. | — |
+| D3 | ✅ **Decided:** Umami, on the Cloud free tier (or self-hosted if that tier stops being enough). One env-configured script tag: `NEXT_PUBLIC_UMAMI_WEBSITE_ID` plus the script URL. It's cookieless, so no consent banner (not legal advice). ⚑ Check the free tier's monthly event limit when you sign up. | — |
+| D4 | ✅ **Decided:** Vercel. ⚑ The Hobby (free) tier is for non-commercial use. A personal site that promotes a free Substack is probably fine, but if the Substack becomes paid, or you sell coaching, check the terms or move to Pro. | — |
 | D5 | Is anyone besides you using classic Angl? This sets how much effort goes into the import UX for the hosted origin. | Assume a few self-hosters. The export → import path is enough. |
 | D6 | Court coordinates: FIBA metres or NBA/NCAA feet? | FIBA metres on a 15 × 14 m half court. A later `court` field can add others. |
 | D7 | Should notes be plain text or Markdown? Markdown means a renderer, which is either a dependency or a careful hand-written subset. | Plain text with line breaks and auto-linked URLs. |
