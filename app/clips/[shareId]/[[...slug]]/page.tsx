@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
 import { ClipPlayer } from '@/components/ClipPlayer';
@@ -137,7 +138,7 @@ export default async function ClipPage({ params }: { params: Params }) {
         </p>
         {clip.tags.length > 0 && (
           <ul className={styles.tags} aria-label="Tags">
-            {clip.tags.map(t => <li key={t}>{t}</li>)}
+            {clip.tags.map(t => <li key={t}><Link href={`/library?tag=${encodeURIComponent(t)}`}>{t}</Link></li>)}
           </ul>
         )}
       </header>

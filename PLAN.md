@@ -776,7 +776,7 @@ Every runtime dependency, with its justification:
 | `@supabase/ssr` | Cookie-based sessions in server components and route handlers. Without it, server rendering can't know who is signed in. |
 | `zod` | Runtime validation at every trust boundary (import files, API, sync, later AI output) and JSON Schema generation for LLM tools. |
 | `@dnd-kit/core`, `@dnd-kit/sortable` | Added in the plan-builder phase. HTML5 drag-and-drop doesn't work on touch devices, and accessible keyboard drag is substantial work. ↑/↓ buttons exist as the fallback. |
-| `fast-xml-parser` | Added in the site-pages phase to parse the Substack RSS. Parsing XML with regexes breaks on CDATA and entities. It has no dependencies. ⚑ It could be avoided if Substack's JSON endpoints prove stable, but those are undocumented. |
+| ~~`fast-xml-parser`~~ | **Not used** (Phase 3). The plan said it had no dependencies; version 5.12 brings six. The feed reader is hand-written instead (`lib/substack.ts`, about 60 lines). It reads one known source (Substack RSS) for six fields, handles CDATA and the entities Substack leaves inside it, and is tested against a fixture modelled on the real feed. |
 
 Dev dependencies are `typescript` and `@types/*`. Tests run on `node --test` with no runner
 dependency. Playwright is used only for local and CI smoke checks of the share page, as an
@@ -891,14 +891,19 @@ Decisions made while building:
   filter).
 - Shared layout with header, footer and the subscribe CTA.
 
-Acceptance criteria:
-- [ ] `/writing` shows the latest posts and still renders a stale-but-valid page if Substack
-  is unreachable.
-- [ ] Tag chips on a clip page lead to a filtered `/library`.
-- [ ] Every public route has the CTA, analytics and valid OG tags, checked by a script that
-  crawls the sitemap.
-- [ ] `sitemap.xml` and `robots.txt` list public items only.
+**Status (2026-11-06): built and verified locally against the real database and your real Substack feed. Not yet deployed.**
 
+Acceptance criteria:
+- [x] `/writing` shows your 4 real posts, newest first. When a background refresh fails, the error is allowed through, so Next keeps the last good page. If the feed is down at build time, the deploy still succeeds and the page shows a link to Substack until the next refresh (checked by building with no route to Substack). With nothing cached at all, `app/writing/error.tsx` shows a link to Substack and isn't cached.
+- [x] Tags on a clip page link to `/library?tag=…`, which shows only clips with that tag. The tag chips count public clips only, and an unlisted clip never appears.
+- [x] `npm run check:site [url] [--analytics]` crawls the sitemap. It checks every page for a 200, `og:title/description/url/image`, `twitter:card`, a canonical link, the subscribe link and no `noindex`, and with `--analytics` the Umami tag. All pass locally. ⚑ Run `--analytics` against production once the Umami id is set.
+- [x] `sitemap.xml` lists the four site pages and every public clip. Unlisted clips and `/studio` are left out, and `robots.txt` disallows `/studio` and `/auth`.
+
+Decisions made while building:
+- **The site's identity lives in the database.** The studio's new "Your profile" page holds your name, handle, a one-line tagline (new column, migration `…000400`), bio and links. The home page leads with the name and tagline; the about page renders the bio and links. Until you save a profile, both pages show neutral fallbacks.
+- **Default link-preview card:** `/og`, drawn at build by Next's built-in `next/og` with no image file. Every non-clip page sets it explicitly (`lib/metadata.ts`), because a page's `openGraph` replaces the layout's wholesale. Clip pages keep their YouTube thumbnail.
+- **Caching:** library and home reads are cached for 5 minutes under one tag, and the feed for an hour. A studio save refreshes the clip, the library and the home page at once, and a profile save refreshes home and about.
+- **Library cards** use YouTube's 320 px `mqdefault` thumbnail with lazy loading, not the resizer, so a grid doesn't use up Vercel's image-resizing allowance.
 ### Phase 4 — Local store + first-load legacy migration
 
 - IndexedDB store.

@@ -40,12 +40,24 @@ img { max-width: 100%; }
 }
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   min-height: 52px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
+/* Below the name and Subscribe on a phone, beside them on a wider screen */
+.site-nav { order: 3; flex-basis: 100%; display: flex; gap: 18px; }
+.site-nav a { display: inline-flex; align-items: center; min-height: 40px; color: var(--text2); text-decoration: none; font-size: 15px; }
+.site-nav a:hover { color: var(--text); }
+@media (min-width: 640px) {
+  .site-nav { order: 0; flex-basis: auto; margin-left: auto; margin-right: 12px; }
+}
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.section-head h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text2); }
+.section-head a { font-size: 14px; }
+.muted { color: var(--text2); }
 .site-name { color: var(--text); font-weight: 650; text-decoration: none; letter-spacing: -0.01em; }
 .site-header a.subscribe-link { font-size: 14px; font-weight: 600; text-decoration: none; }
 .site-footer {

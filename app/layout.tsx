@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: { default: site.name, template: `%s · ${site.name}` },
   description: 'Basketball clips, drills and session plans.',
+  openGraph: { siteName: site.name, type: 'website' },
+  twitter: { card: 'summary_large_image' },
 };
 
 export const viewport: Viewport = {
@@ -27,6 +29,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                data-umami-event="subscribe_click" data-umami-event-placement="header">
               Subscribe
             </a>
+            <nav className="site-nav" aria-label="Site">
+              <Link href="/library">Library</Link>
+              <Link href="/writing">Writing</Link>
+              <Link href="/about">About</Link>
+            </nav>
           </header>
           {children}
           <footer className="site-footer">

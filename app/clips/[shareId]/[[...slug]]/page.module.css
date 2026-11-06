@@ -6,14 +6,19 @@
 .meta + .credit { margin-top: 8px; }
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin-top: 12px; }
-.tags li {
-  padding: 3px 10px;
+.tags a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--border2);
   border-radius: 999px;
   background: var(--bg3);
   color: var(--text2);
   font-size: 13px;
+  text-decoration: none;
 }
+.tags a:hover { color: var(--text); }
 
 .notes { display: grid; gap: 12px; white-space: pre-line; overflow-wrap: anywhere; }
 

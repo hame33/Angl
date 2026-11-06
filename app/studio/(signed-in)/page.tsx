@@ -32,7 +32,10 @@ export default async function StudioHome() {
 
   return (
     <main className={styles.stack}>
-      <h1 className={styles.h1}>Studio</h1>
+      <div className={`${styles.row} ${styles.between}`}>
+        <h1 className={styles.h1}>Studio</h1>
+        <Link href="/studio/profile" className={styles.ghost}>Your profile</Link>
+      </div>
 
       <ImportPanel />
 
